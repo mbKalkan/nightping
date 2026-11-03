@@ -29,12 +29,15 @@ writeFileSync(
   join(userData, 'User', 'settings.json'),
   JSON.stringify({ 'update.mode': 'none', 'extensions.autoUpdate': false }),
 );
+// An empty folder to open: tasks run in a workspace folder.
+const folder = mkdtempSync(join(tmpdir(), 'nightping-smoke-folder-'));
 try {
   await runTests({
     version: process.env.VSCODE_VERSION ?? 'stable',
     extensionDevelopmentPath: root,
     extensionTestsPath: suite,
     launchArgs: [
+      folder,
       '--disable-extensions',
       '--skip-welcome',
       '--disable-workspace-trust',
@@ -43,5 +46,7 @@ try {
     ],
   });
 } finally {
-  rmSync(userData, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 });
+  for (const dir of [userData, folder]) {
+    rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 });
+  }
 }

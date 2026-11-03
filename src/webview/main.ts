@@ -7,26 +7,11 @@ import {
   suggestTopic,
 } from '../shared/destination';
 import type { HostToWebviewMessage, PanelState, PanelStrings, SentEntry } from '../shared/protocol';
+import { button, element } from './dom';
+import { NotifyCard } from './notify';
 import { vscode } from './vscodeApi';
 
 const app = document.getElementById('app') as HTMLElement;
-
-function element<K extends keyof HTMLElementTagNameMap>(
-  tag: K,
-  className?: string,
-  text?: string,
-): HTMLElementTagNameMap[K] {
-  const node = document.createElement(tag);
-  if (className) node.className = className;
-  if (text !== undefined) node.textContent = text;
-  return node;
-}
-
-function button(text: string, kind: 'primary' | 'secondary' | 'link'): HTMLButtonElement {
-  const node = element('button', `ng-button ng-${kind}`, text);
-  node.type = 'button';
-  return node;
-}
 
 /** A labelled input with its help line, an error line and an optional button beside it. */
 class Field {
@@ -79,6 +64,7 @@ class PanelView {
   private readonly history = element('ol', 'ng-history');
   private readonly empty = element('p', 'ng-empty');
   private readonly clear: HTMLButtonElement;
+  private readonly notify: NotifyCard;
   private readonly time: Intl.DateTimeFormat;
   private readonly dateTime: Intl.DateTimeFormat;
   private state: PanelState | undefined;
@@ -134,6 +120,10 @@ class PanelView {
     const destination = this.card(strings.destination);
     destination.append(form);
 
+    this.notify = new NotifyCard(strings, locale);
+    const notify = this.card(strings.whenToNotify);
+    notify.append(this.notify.element);
+
     // Recent notifications.
     this.clear = button(strings.clearRecent, 'link');
     this.empty.textContent = strings.recentEmpty;
@@ -145,7 +135,7 @@ class PanelView {
     const settings = button(strings.allSettings, 'link');
     footer.append(element('p', 'ng-privacy', strings.privacy), settings);
 
-    main.append(header, destination, recent, footer);
+    main.append(header, destination, notify, recent, footer);
     app.replaceChildren(main);
 
     for (const field of [this.server, this.topic, this.token]) {
@@ -192,6 +182,7 @@ class PanelView {
       ? this.strings.tokenSaved
       : this.strings.tokenPlaceholder;
     this.removeToken.hidden = !state.hasToken;
+    this.notify.show(state);
     this.renderHistory(state.history);
     this.check();
   }

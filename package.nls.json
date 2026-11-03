@@ -9,5 +9,15 @@
   "command.clearToken": "Clear Access Token",
   "command.openSettings": "Open Settings",
   "config.server": "URL of your ntfy server, for example `https://ntfy.sh` or `https://ntfy.example.com`. Nightping has no default server and sends nothing until you set this and a topic. An access token, if your server needs one, is set with **Nightping: Set Access Token…** and kept in secret storage, not here.",
-  "config.topic": "ntfy topic to publish to: letters, numbers, `-` and `_`, up to 64 characters. On a public server anyone who knows the topic can read it, so pick a long, hard-to-guess name or use a server with access control."
+  "config.topic": "ntfy topic to publish to: letters, numbers, `-` and `_`, up to 64 characters. On a public server anyone who knows the topic can read it, so pick a long, hard-to-guess name or use a server with access control.",
+  "config.notifyOn.tasks": "Notify when a task finishes.",
+  "config.notifyOn.terminalCommands": "Notify when a command in a terminal finishes. Works in terminals with [shell integration](https://code.visualstudio.com/docs/terminal/shell-integration).",
+  "config.notifyOn.notebookCells": "Notify when a notebook cell finishes running.",
+  "config.notifyOn.debugSessions": "Notify when a debug session ends.",
+  "config.minimumDuration": "Runs that succeed in less than this many seconds stay quiet. Failures notify at any duration. `0` notifies about every run.",
+  "config.onlyWhenAway": "Stay quiet while you are using this VS Code window: it is focused and you used it in the last few seconds.",
+  "config.content": "What a notification says. Everything in it goes to your ntfy server.",
+  "config.content.result": "The kind of run, its result and duration, for example `Task` / `Failed (exit 1) · 4m 12s`.",
+  "config.content.folder": "Also the workspace name.",
+  "config.content.details": "Also the task name, command line, notebook file name or debug configuration name."
 }
