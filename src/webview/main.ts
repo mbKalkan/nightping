@@ -54,6 +54,7 @@ class Field {
 
 class PanelView {
   private readonly status = element('span', 'ng-status');
+  private readonly pause: HTMLButtonElement;
   private readonly server: Field;
   private readonly topic: Field;
   private readonly token: Field;
@@ -93,7 +94,12 @@ class PanelView {
       element('p', 'ng-tagline', strings.tagline),
     );
     this.status.setAttribute('role', 'status');
-    header.append(heading, this.status);
+    // Pause opens VS Code's own list of lengths; Resume ends the pause at once.
+    this.pause = button(strings.pause, 'secondary');
+    this.pause.hidden = true;
+    const side = element('div', 'ng-header-side');
+    side.append(this.status, this.pause);
+    header.append(heading, side);
 
     // Destination: the settings and the token, saved together.
     const random = button(strings.randomTopic, 'secondary');
@@ -162,6 +168,9 @@ class PanelView {
     });
     this.clear.addEventListener('click', () => vscode.postMessage({ type: 'clearHistory' }));
     settings.addEventListener('click', () => vscode.postMessage({ type: 'openSettings' }));
+    this.pause.addEventListener('click', () =>
+      vscode.postMessage({ type: this.state?.pause ? 'resume' : 'pause' }),
+    );
   }
 
   show(state: PanelState): void {
@@ -176,8 +185,7 @@ class PanelView {
     }
     this.state = state;
 
-    this.status.textContent = this.strings.status[state.status];
-    this.status.dataset.status = state.status;
+    this.showStatus(state);
     this.token.input.placeholder = state.hasToken
       ? this.strings.tokenSaved
       : this.strings.tokenPlaceholder;
@@ -185,6 +193,28 @@ class PanelView {
     this.notify.show(state);
     this.renderHistory(state.history);
     this.check();
+  }
+
+  private showStatus(state: PanelState): void {
+    const ready = state.status === 'ready';
+    const until = state.pause?.until;
+    this.status.textContent =
+      ready && state.pause
+        ? until === undefined
+          ? this.strings.pausedUntilResumed
+          : this.strings.pausedUntil.replace('{0}', this.when(until))
+        : this.strings.status[state.status];
+    this.status.dataset.status = ready && state.pause ? 'paused' : state.status;
+    this.pause.hidden = !ready;
+    this.pause.textContent = state.pause ? this.strings.resume : this.strings.pause;
+  }
+
+  /** The time, with the date when it is not today. */
+  private when(ms: number): string {
+    const date = new Date(ms);
+    return (date.toDateString() === new Date().toDateString() ? this.time : this.dateTime).format(
+      date,
+    );
   }
 
   setBusy(busy: boolean): void {
@@ -283,14 +313,13 @@ class PanelView {
   }
 
   private renderHistory(entries: SentEntry[]): void {
-    const today = new Date().toDateString();
     this.history.replaceChildren(
       ...entries.map((entry) => {
         const item = element('li', `ng-entry ${entry.error === undefined ? 'ng-ok' : 'ng-failed'}`);
         const when = element('time', 'ng-when');
         const date = new Date(entry.time);
         when.dateTime = date.toISOString();
-        when.textContent = (date.toDateString() === today ? this.time : this.dateTime).format(date);
+        when.textContent = this.when(entry.time);
         const body = element('div', 'ng-entry-body');
         const line = element('p', 'ng-entry-line');
         line.append(

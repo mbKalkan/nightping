@@ -5,6 +5,11 @@ export interface PanelStrings {
   title: string;
   tagline: string;
   status: Record<PanelStatus, string>;
+  pause: string;
+  resume: string;
+  /** `{0}` is the time. */
+  pausedUntil: string;
+  pausedUntilResumed: string;
   destination: string;
   server: string;
   serverHelp: string;
@@ -110,6 +115,8 @@ export interface PanelState {
   /** Whether a token is saved. The token itself never reaches the panel. */
   hasToken: boolean;
   status: PanelStatus;
+  /** Present while notifications are paused; without `until`, until the user resumes. */
+  pause?: { until?: number };
   /** Newest first. */
   history: SentEntry[];
   prefs: NotifyPrefs;
@@ -135,4 +142,7 @@ export type WebviewToHostMessage =
   | { type: 'clearHistory' }
   | { type: 'openSettings' }
   | { type: 'setPref'; change: PrefChange }
+  /** The host asks how long, in VS Code's own list. */
+  | { type: 'pause' }
+  | { type: 'resume' }
   | { type: 'openShellIntegrationHelp' };

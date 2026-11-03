@@ -12,13 +12,21 @@ export type Decision =
   | 'send'
   /** That kind of event is turned off. */
   | 'off'
+  /** The user paused notifications. */
+  | 'paused'
   /** The user is at this window and sees it finish. */
   | 'present'
   /** It succeeded faster than the minimum duration. */
   | 'short';
 
-export function decide(event: FinishedEvent, prefs: NotifyPrefs, presence: Presence): Decision {
+export function decide(
+  event: FinishedEvent,
+  prefs: NotifyPrefs,
+  presence: Presence,
+  paused: boolean,
+): Decision {
   if (!prefs.sources[event.kind]) return 'off';
+  if (paused) return 'paused';
   if (prefs.onlyWhenAway && presence.focused && presence.active) return 'present';
   if (outcomeOf(event).kind !== 'failed' && event.durationMs < prefs.minimumSeconds * 1000) {
     return 'short';

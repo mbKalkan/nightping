@@ -3,6 +3,7 @@ import type { HostToWebviewMessage, PanelState, WebviewToHostMessage } from '../
 import { isServerUrl, isToken, isTopic, normalizeServer } from './config';
 import { samplePreviews } from './format';
 import type { History } from './history';
+import type { Pauser } from './pause';
 import { settingFor } from './prefs';
 import {
   currentDestination,
@@ -23,6 +24,7 @@ export interface PanelContext {
   secrets: vscode.SecretStorage;
   history: History;
   sender: Sender;
+  pauser: Pauser;
 }
 
 /** The one Nightping panel: shown again rather than opened twice. */
@@ -69,6 +71,7 @@ export class Panel {
         if (event.key === TOKEN_KEY) void this.update();
       }),
       context.history.onDidChange(() => void this.update()),
+      context.pauser.onDidChange(() => void this.update()),
       vscode.window.onDidOpenTerminal(() => void this.update()),
       vscode.window.onDidCloseTerminal(() => void this.update()),
       vscode.window.onDidChangeTerminalShellIntegration(() => void this.update()),
@@ -125,6 +128,12 @@ export class Panel {
           .update(setting.key, setting.value, vscode.ConfigurationTarget.Global);
         return;
       }
+      case 'pause':
+        await vscode.commands.executeCommand('nightping.pause');
+        return;
+      case 'resume':
+        await vscode.commands.executeCommand('nightping.resume');
+        return;
       case 'openShellIntegrationHelp':
         await vscode.env.openExternal(vscode.Uri.parse(SHELL_INTEGRATION_HELP));
         return;
@@ -167,6 +176,7 @@ export class Panel {
       hasToken: (await this.context.secrets.get(TOKEN_KEY)) !== undefined,
       status: destination.kind,
       history: this.context.history.entries(),
+      pause: this.context.pauser.current(),
       prefs: currentPrefs(),
       previews: samplePreviews(vscode.l10n.t, vscode.workspace.name),
       terminals: {

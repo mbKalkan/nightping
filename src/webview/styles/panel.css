@@ -97,6 +97,17 @@ body {
   background: var(--ng-warning);
 }
 
+.ng-status[data-status='paused']::before {
+  background: var(--ng-quiet);
+}
+
+.ng-header-side {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
 .ng-status[data-status='incomplete']::before {
   background: transparent;
   box-shadow: inset 0 0 0 1.5px var(--ng-quiet);

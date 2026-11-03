@@ -37,6 +37,8 @@ const tests: Record<string, () => Promise<void>> = {
       'nightping.sendTest',
       'nightping.setToken',
       'nightping.clearToken',
+      'nightping.pause',
+      'nightping.resume',
       'nightping.openSettings',
     ]) {
       assert.ok(commands.includes(command), command);
@@ -199,6 +201,32 @@ const tests: Record<string, () => Promise<void>> = {
       assert.match(String(body.message), /^Ended · \d+s$/);
       assert.deepEqual(body.tags, ['checkered_flag']);
     } finally {
+      await reset();
+      await ntfy.close();
+    }
+  },
+
+  async 'sends nothing while paused but a test, and notifies again once resumed'() {
+    const ntfy = await fakeNtfy();
+    const reset = await useSettings({
+      server: ntfy.server,
+      topic: 'smoke-test',
+      onlyWhenAway: false,
+    });
+    try {
+      await vscode.commands.executeCommand('nightping.pause', 60);
+      await runTask('nightping-smoke-paused', 'exit 3');
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      assert.equal(ntfy.requests.length, 0);
+      await vscode.commands.executeCommand('nightping.sendTest');
+      assert.equal(ntfy.requests.length, 1);
+
+      await vscode.commands.executeCommand('nightping.resume');
+      await runTask('nightping-smoke-resumed', 'exit 3');
+      const request = await waitFor(() => ntfy.requests[1]);
+      assert.equal((JSON.parse(request.body) as { title: string }).title, 'Task');
+    } finally {
+      await vscode.commands.executeCommand('nightping.resume');
       await reset();
       await ntfy.close();
     }

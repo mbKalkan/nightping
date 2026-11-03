@@ -26,6 +26,10 @@ All of this is in the **When to notify** card of the Nightping panel, and change
 - **Only when I am away** (`nightping.onlyWhenAway`),
 - the content (`nightping.content`): the result and duration only (default), also the workspace name, or also the task name, command line or file name. A preview shows what your phone will get.
 
+**Pause** notifications for 30 minutes, an hour, four hours or until you resume: with **Pause…** at the top of the panel, from the status bar item's hover, or with **Nightping: Pause Notifications…**. The pause holds in every VS Code window on this computer, the status bar says **Paused**, and **Resume** ends it. Test notifications still go out. For a key binding, pass the minutes: `{ "key": "…", "command": "nightping.pause", "args": 60 }`.
+
+Hovering over the status bar item also shows the last notification, or why it was not sent.
+
 ## Your server, your settings
 
 Nightping ships with **no server, no topic and no account**. Nothing is sent until you enter your own:

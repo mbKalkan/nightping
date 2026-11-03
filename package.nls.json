@@ -5,6 +5,8 @@
   "command.open": "Open",
   "command.setUp": "Set Up…",
   "command.sendTest": "Send Test Notification",
+  "command.pause": "Pause Notifications…",
+  "command.resume": "Resume Notifications",
   "command.setToken": "Set Access Token…",
   "command.clearToken": "Clear Access Token",
   "command.openSettings": "Open Settings",
