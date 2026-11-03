@@ -59,6 +59,16 @@
         "category": "%category%"
       },
       {
+        "command": "nightping.pause",
+        "title": "%command.pause%",
+        "category": "%category%"
+      },
+      {
+        "command": "nightping.resume",
+        "title": "%command.resume%",
+        "category": "%category%"
+      },
+      {
         "command": "nightping.setToken",
         "title": "%command.setToken%",
         "category": "%category%"
@@ -74,6 +84,18 @@
         "category": "%category%"
       }
     ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "nightping.pause",
+          "when": "!nightping.paused"
+        },
+        {
+          "command": "nightping.resume",
+          "when": "nightping.paused"
+        }
+      ]
+    },
     "configuration": {
       "title": "Nightping",
       "properties": {

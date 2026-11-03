@@ -1,12 +1,45 @@
 // The command palette way to do what the panel does.
 import * as vscode from 'vscode';
 import { isServerUrl, isToken, isTopic, normalizeServer, suggestTopic } from './config';
+import { isPauseMinutes, PAUSE_MINUTES, type Pauser } from './pause';
 import { saveDestination, TOKEN_KEY, type Sender, type SendOutcome } from './sender';
 import { testMessage } from './texts';
 
 export interface Services {
   secrets: vscode.SecretStorage;
   sender: Sender;
+  pauser: Pauser;
+}
+
+/**
+ * Pauses for the minutes a key binding or another extension passes; without them, asks how long.
+ * The panel's Pause button and the status bar's hover come here too.
+ */
+export async function pause(services: Services, minutes?: unknown): Promise<void> {
+  if (isPauseMinutes(minutes)) {
+    await services.pauser.pause(minutes);
+    return;
+  }
+  const choices: Array<vscode.QuickPickItem & { minutes?: number }> = [
+    ...PAUSE_MINUTES.map((m) => ({ label: pauseLength(m), minutes: m })),
+    { label: vscode.l10n.t('Until I resume') },
+  ];
+  const choice = await vscode.window.showQuickPick(choices, {
+    title: vscode.l10n.t('Pause Notifications'),
+    placeHolder: vscode.l10n.t('Nothing is sent until then. Test notifications still go out.'),
+  });
+  if (choice) await services.pauser.pause(choice.minutes);
+}
+
+export async function resume(services: Services): Promise<void> {
+  await services.pauser.resume();
+}
+
+function pauseLength(minutes: number): string {
+  if (minutes === 60) return vscode.l10n.t('For 1 hour');
+  return minutes % 60 === 0
+    ? vscode.l10n.t('For {0} hours', minutes / 60)
+    : vscode.l10n.t('For {0} minutes', minutes);
 }
 
 interface Action {

@@ -74,12 +74,51 @@ for (const theme of ['dark', 'light', 'hcDark', 'hcLight'] as ThemeName[]) {
       await notifyCard(page).screenshot({ path: `${SCREENS}/notify-${theme}.png` });
       expect(panel.problems).toEqual([]);
     });
+
+    test('says when notifications are paused', async ({ page }) => {
+      const panel = await openPanel(page, theme);
+      await panel.init({ ...ready, pause: {} });
+      await expect(page.locator('.ng-status')).toHaveText(strings.pausedUntilResumed);
+      await expect(page.getByRole('button', { name: strings.resume })).toBeVisible();
+      expect(await lowestTextContrast(page)).toBeGreaterThanOrEqual(theme === 'hcDark' ? 7 : 4.5);
+      await page.locator('.ng-header').screenshot({ path: `${SCREENS}/paused-${theme}.png` });
+      expect(panel.problems).toEqual([]);
+    });
   });
 }
 
 const notifyCard = (page: Page) => page.getByRole('region', { name: strings.whenToNotify });
 const minimum = (page: Page) => page.getByLabel(strings.minimum);
 const preview = (page: Page) => page.locator('.ng-preview p');
+
+test('pauses and resumes from the header', async ({ page }) => {
+  const panel = await openPanel(page, 'dark');
+  await panel.init(notSetUp);
+  // Nothing to pause before Nightping is set up.
+  await expect(page.getByRole('button', { name: strings.pause })).toBeHidden();
+
+  await panel.post({ type: 'state', state: ready });
+  await page.getByRole('button', { name: strings.pause }).click();
+  // In the language VS Code shows (English here: a 12-hour clock); the date only when not today.
+  const today = new Date();
+  today.setHours(23, 59, 0, 0);
+  await panel.post({ type: 'state', state: { ...ready, pause: { until: today.getTime() } } });
+  await expect(page.locator('.ng-status')).toHaveText(/^Paused until 11:59\sPM$/);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+  tomorrow.setHours(9, 30);
+  const day = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' }).format(tomorrow);
+  await panel.post({ type: 'state', state: { ...ready, pause: { until: tomorrow.getTime() } } });
+  await expect(page.locator('.ng-status')).toHaveText(
+    new RegExp(`^Paused until ${day}, 9:30\\sAM$`),
+  );
+  await page.getByRole('button', { name: strings.resume }).click();
+  expect(await panel.sent()).toEqual([{ type: 'pause' }, { type: 'resume' }]);
+
+  await panel.post({ type: 'state', state: ready });
+  await expect(page.locator('.ng-status')).toHaveText(strings.status.ready);
+  await expect(page.getByRole('button', { name: strings.pause })).toBeVisible();
+});
 
 test('writes each choice at once', async ({ page }) => {
   const panel = await openPanel(page, 'dark');

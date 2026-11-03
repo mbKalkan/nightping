@@ -15,22 +15,26 @@ const task = (exitCode: number | undefined, seconds: number): FinishedEvent => (
 
 describe('decide', () => {
   it('sends a long run that finishes while the user is away', () => {
-    expect(decide(task(0, 30), DEFAULT_PREFS, away)).toBe('send');
+    expect(decide(task(0, 30), DEFAULT_PREFS, away, false)).toBe('send');
   });
 
   it('keeps a successful short run quiet, but not a failed one', () => {
-    expect(decide(task(0, 29.9), DEFAULT_PREFS, away)).toBe('short');
-    expect(decide(task(undefined, 5), DEFAULT_PREFS, away)).toBe('short');
-    expect(decide(task(1, 1), DEFAULT_PREFS, away)).toBe('send');
+    expect(decide(task(0, 29.9), DEFAULT_PREFS, away, false)).toBe('short');
+    expect(decide(task(undefined, 5), DEFAULT_PREFS, away, false)).toBe('short');
+    expect(decide(task(1, 1), DEFAULT_PREFS, away, false)).toBe('send');
   });
 
   it('stays quiet while the user is at this window', () => {
-    expect(decide(task(1, 600), DEFAULT_PREFS, atDesk)).toBe('present');
+    expect(decide(task(1, 600), DEFAULT_PREFS, atDesk, false)).toBe('present');
     // Another window has focus, or this one has not been used for a while: the user may be gone.
-    expect(decide(task(1, 600), DEFAULT_PREFS, { focused: false, active: true })).toBe('send');
-    expect(decide(task(1, 600), DEFAULT_PREFS, { focused: true, active: false })).toBe('send');
+    expect(decide(task(1, 600), DEFAULT_PREFS, { focused: false, active: true }, false)).toBe(
+      'send',
+    );
+    expect(decide(task(1, 600), DEFAULT_PREFS, { focused: true, active: false }, false)).toBe(
+      'send',
+    );
     const always: NotifyPrefs = { ...DEFAULT_PREFS, onlyWhenAway: false };
-    expect(decide(task(1, 600), always, atDesk)).toBe('send');
+    expect(decide(task(1, 600), always, atDesk, false)).toBe('send');
   });
 
   it('sends nothing for a kind of run that is turned off', () => {
@@ -38,11 +42,15 @@ describe('decide', () => {
       ...DEFAULT_PREFS,
       sources: { ...DEFAULT_PREFS.sources, task: false },
     };
-    expect(decide(task(1, 600), noTasks, away)).toBe('off');
+    expect(decide(task(1, 600), noTasks, away, false)).toBe('off');
+  });
+
+  it('sends nothing while notifications are paused', () => {
+    expect(decide(task(1, 600), DEFAULT_PREFS, away, true)).toBe('paused');
   });
 
   it('sends every run when the minimum is zero', () => {
     const every: NotifyPrefs = { ...DEFAULT_PREFS, minimumSeconds: 0 };
-    expect(decide(task(0, 0), every, away)).toBe('send');
+    expect(decide(task(0, 0), every, away, false)).toBe('send');
   });
 });
