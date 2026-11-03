@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { readDestination } from '../../src/extension/config';
+import {
+  isTopic,
+  normalizeServer,
+  readDestination,
+  suggestTopic,
+} from '../../src/extension/config';
 
 const read = (server: unknown, topic: unknown) =>
   readDestination((key) => (key === 'server' ? server : topic));
@@ -41,6 +46,25 @@ describe('readDestination', () => {
     expect(read('https://ntfy.sh', 'a'.repeat(64)).kind).toBe('ready');
     for (const topic of ['a'.repeat(65), 'my topic', 'tópico', 'a/b', 'a.b']) {
       expect(read('https://ntfy.sh', topic), topic).toEqual({ kind: 'invalid', setting: 'topic' });
+    }
+  });
+});
+
+describe('normalizeServer', () => {
+  it('stores the server the way it is used', () => {
+    expect(normalizeServer('  https://ntfy.example.com/ntfy//  ')).toBe(
+      'https://ntfy.example.com/ntfy',
+    );
+  });
+});
+
+describe('suggestTopic', () => {
+  it('suggests a valid, long and different topic each time', () => {
+    const topics = new Set(Array.from({ length: 50 }, suggestTopic));
+    expect(topics.size).toBe(50);
+    for (const topic of topics) {
+      expect(isTopic(topic), topic).toBe(true);
+      expect(topic).toMatch(/^nightping-[a-z0-9]{20}$/);
     }
   });
 });

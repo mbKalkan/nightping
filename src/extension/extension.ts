@@ -1,13 +1,11 @@
 import * as vscode from 'vscode';
-import { readDestination } from './config';
+import { clearToken, currentDestination, sendTest, setToken, setUp } from './commands';
 import { StatusBar } from './statusBar';
 
 export function activate(context: vscode.ExtensionContext): void {
+  const { secrets } = context;
   const status = new StatusBar();
-  const refresh = () => {
-    const settings = vscode.workspace.getConfiguration('nightping');
-    status.show(readDestination((key) => settings.get(key)));
-  };
+  const refresh = () => status.show(currentDestination());
   refresh();
 
   context.subscriptions.push(
@@ -17,6 +15,10 @@ export function activate(context: vscode.ExtensionContext): void {
         refresh();
       }
     }),
+    vscode.commands.registerCommand('nightping.setUp', () => setUp(secrets)),
+    vscode.commands.registerCommand('nightping.sendTest', () => sendTest(secrets)),
+    vscode.commands.registerCommand('nightping.setToken', () => setToken(secrets)),
+    vscode.commands.registerCommand('nightping.clearToken', () => clearToken(secrets)),
     vscode.commands.registerCommand('nightping.openSettings', () =>
       vscode.commands.executeCommand(
         'workbench.action.openSettings',

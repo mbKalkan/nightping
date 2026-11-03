@@ -25,6 +25,10 @@ Nightping ships with **no server, no topic and no account**. Nothing is sent unt
 
 Requests go only to the server you entered. There is no telemetry and no other network traffic. By default a notification contains only the event, the result and the duration; folder names, command lines and agent summaries are added only if you turn them on.
 
+Run **Nightping: Set Up…** from the Command Palette (or click the bell in the status bar). It asks for the server, a topic and an optional token, then sends a test notification. If it does not arrive, Nightping says why: a missing or refused token, a redirect, an unreachable server.
+
+The server and topic are user settings, so Settings Sync takes them to your other computers. The token stays in the secret storage of each computer; set it again there with **Nightping: Set Access Token…**.
+
 The README will include a step-by-step guide for both ntfy.sh and a self-hosted server before the first release.
 
 ## License
