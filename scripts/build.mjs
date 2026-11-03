@@ -1,4 +1,4 @@
-// Bundles the extension host (Node, CommonJS). Nightping has no webview.
+// Bundles the extension host (Node, CommonJS) and the panel webview (browser, ESM).
 import { rmSync } from 'node:fs';
 import * as esbuild from 'esbuild';
 
@@ -6,24 +6,41 @@ const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
 
 /** @type {import('esbuild').BuildOptions} */
-const extension = {
-  entryPoints: ['src/extension/extension.ts'],
-  outfile: 'dist/extension.js',
+const shared = {
   bundle: true,
   minify: production,
   sourcemap: production ? false : 'linked',
   logLevel: 'info',
   legalComments: 'linked',
+};
+
+/** @type {import('esbuild').BuildOptions} */
+const extension = {
+  ...shared,
+  entryPoints: ['src/extension/extension.ts'],
+  outfile: 'dist/extension.js',
   platform: 'node',
   format: 'cjs',
   target: 'node20',
   external: ['vscode'],
 };
 
+/** @type {import('esbuild').BuildOptions} */
+const webview = {
+  ...shared,
+  entryPoints: ['src/webview/main.ts'],
+  outdir: 'dist/webview',
+  platform: 'browser',
+  format: 'esm',
+  target: 'chrome120',
+};
+
 if (watch) {
-  const ctx = await esbuild.context(extension);
-  await ctx.watch();
+  const contexts = await Promise.all(
+    [extension, webview].map((options) => esbuild.context(options)),
+  );
+  await Promise.all(contexts.map((ctx) => ctx.watch()));
 } else {
   rmSync('dist', { recursive: true, force: true });
-  await esbuild.build(extension);
+  await Promise.all([extension, webview].map((options) => esbuild.build(options)));
 }

@@ -30,6 +30,7 @@ const tests: Record<string, () => Promise<void>> = {
   async 'contributes its commands'() {
     const commands = await vscode.commands.getCommands(true);
     for (const command of [
+      'nightping.open',
       'nightping.setUp',
       'nightping.sendTest',
       'nightping.setToken',
@@ -42,6 +43,23 @@ const tests: Record<string, () => Promise<void>> = {
 
   async 'opens its settings from the command palette'() {
     await vscode.commands.executeCommand('nightping.openSettings');
+  },
+
+  async 'opens one panel, however often it is asked'() {
+    const panels = () =>
+      vscode.window.tabGroups.all
+        .flatMap((group) => group.tabs)
+        .filter(
+          (tab) =>
+            tab.input instanceof vscode.TabInputWebview &&
+            tab.input.viewType.endsWith('nightping.panel'),
+        );
+    await vscode.commands.executeCommand('nightping.open');
+    await vscode.commands.executeCommand('nightping.open');
+    const open = await waitFor(() => (panels().length > 0 ? panels() : undefined));
+    assert.equal(open.length, 1);
+    assert.equal(open[0].label, 'Nightping');
+    await vscode.window.tabGroups.close(open);
   },
 
   async 'starts without a server or topic'() {

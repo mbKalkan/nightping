@@ -44,6 +44,11 @@
   "contributes": {
     "commands": [
       {
+        "command": "nightping.open",
+        "title": "%command.open%",
+        "category": "%category%"
+      },
+      {
         "command": "nightping.setUp",
         "title": "%command.setUp%",
         "category": "%category%"
@@ -98,17 +103,19 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "watch": "node scripts/build.mjs --watch",
-    "typecheck": "tsc -p tsconfig.extension.json && tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.extension.json && tsc -p tsconfig.webview.json && tsc -p tsconfig.json",
     "lint": "eslint src scripts test",
-    "format": "prettier --write \"src/**/*.ts\" \"scripts/**/*.mjs\" \"test/**/*.ts\" \"*.{json,mjs,ts}\" \".github/**/*.yml\" \".vscode/*.json\" \"l10n/*.json\"",
-    "format:check": "prettier --check \"src/**/*.ts\" \"scripts/**/*.mjs\" \"test/**/*.ts\" \"*.{json,mjs,ts}\" \".github/**/*.yml\" \".vscode/*.json\" \"l10n/*.json\"",
+    "format": "prettier --write \"src/**/*.{ts,css}\" \"scripts/**/*.mjs\" \"test/**/*.ts\" \"*.{json,mjs,ts}\" \".github/**/*.yml\" \".vscode/*.json\" \"l10n/*.json\"",
+    "format:check": "prettier --check \"src/**/*.{ts,css}\" \"scripts/**/*.mjs\" \"test/**/*.ts\" \"*.{json,mjs,ts}\" \".github/**/*.yml\" \".vscode/*.json\" \"l10n/*.json\"",
     "test": "vitest run",
+    "test:visual": "node scripts/build.mjs && playwright test",
     "test:smoke": "node scripts/build.mjs && node scripts/smoke.mjs",
     "package": "vsce package --no-dependencies",
     "vscode:prepublish": "node scripts/build.mjs --production"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.64.0",
     "@types/node": "^22.20.5",
     "@types/vscode": "1.93.0",
     "@vscode/test-electron": "^3.1.0",

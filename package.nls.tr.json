@@ -2,6 +2,7 @@
   "displayName": "Nightping — ntfy ile Telefon Bildirimleri",
   "description": "Görevler, terminal komutları, notebook'lar, debug oturumları ya da AI ajanları bitince veya sizi beklerken kendi ntfy sunucunuz ya da topic'iniz üzerinden telefona bildirim. Hazır sunucu yok, telemetri yok.",
   "category": "Nightping",
+  "command.open": "Aç",
   "command.setUp": "Kurulum…",
   "command.sendTest": "Test Bildirimi Gönder",
   "command.setToken": "Erişim Token'ını Gir…",

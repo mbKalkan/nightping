@@ -2,6 +2,7 @@
   "displayName": "Nightping — Phone Notifications via ntfy",
   "description": "Phone push notifications when tasks, terminal commands, notebooks, debug sessions or AI agents finish or need you, through your own ntfy server or topic. No default server, no telemetry.",
   "category": "Nightping",
+  "command.open": "Open",
   "command.setUp": "Set Up…",
   "command.sendTest": "Send Test Notification",
   "command.setToken": "Set Access Token…",
