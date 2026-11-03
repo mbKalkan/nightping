@@ -1,0 +1,104 @@
+{
+  "name": "nightping",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "0.0.1",
+  "publisher": "MBKDevStudio",
+  "license": "MIT",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mbKalkan/nightping.git"
+  },
+  "homepage": "https://github.com/mbKalkan/nightping#readme",
+  "bugs": {
+    "url": "https://github.com/mbKalkan/nightping/issues"
+  },
+  "engines": {
+    "vscode": "^1.93.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "ntfy",
+    "push notification",
+    "phone notification",
+    "notify"
+  ],
+  "pricing": "Free",
+  "main": "./dist/extension.js",
+  "l10n": "./l10n",
+  "extensionKind": [
+    "ui"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    },
+    "virtualWorkspaces": true
+  },
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "nightping.openSettings",
+        "title": "%command.openSettings%",
+        "category": "%category%"
+      }
+    ],
+    "configuration": {
+      "title": "Nightping",
+      "properties": {
+        "nightping.server": {
+          "type": "string",
+          "default": "",
+          "scope": "application",
+          "markdownDescription": "%config.server%"
+        },
+        "nightping.topic": {
+          "type": "string",
+          "default": "",
+          "scope": "application",
+          "markdownDescription": "%config.topic%"
+        }
+      }
+    }
+  },
+  "files": [
+    "dist/**",
+    "l10n/**",
+    "package.nls*.json",
+    "LICENSE",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "watch": "node scripts/build.mjs --watch",
+    "typecheck": "tsc -p tsconfig.extension.json && tsc -p tsconfig.json",
+    "lint": "eslint src scripts test",
+    "format": "prettier --write \"src/**/*.ts\" \"scripts/**/*.mjs\" \"test/**/*.ts\" \"*.{json,mjs,ts}\" \".github/**/*.yml\" \".vscode/*.json\" \"l10n/*.json\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"scripts/**/*.mjs\" \"test/**/*.ts\" \"*.{json,mjs,ts}\" \".github/**/*.yml\" \".vscode/*.json\" \"l10n/*.json\"",
+    "test": "vitest run",
+    "test:smoke": "node scripts/build.mjs && node scripts/smoke.mjs",
+    "package": "vsce package --no-dependencies",
+    "vscode:prepublish": "node scripts/build.mjs --production"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.20.5",
+    "@types/vscode": "1.93.0",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^4.0.0",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.12.0",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.10",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.71.2",
+    "vitest": "^5.0.4"
+  }
+}
