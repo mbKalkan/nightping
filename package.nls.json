@@ -1,0 +1,8 @@
+{
+  "displayName": "Nightping — Phone Notifications via ntfy",
+  "description": "Phone push notifications when tasks, terminal commands, notebooks, debug sessions or AI agents finish or need you, through your own ntfy server or topic. No default server, no telemetry.",
+  "category": "Nightping",
+  "command.openSettings": "Open Settings",
+  "config.server": "URL of your ntfy server, for example `https://ntfy.sh` or `https://ntfy.example.com`. Nightping has no default server and sends nothing until you set this and a topic.",
+  "config.topic": "ntfy topic to publish to: letters, numbers, `-` and `_`, up to 64 characters. On a public server anyone who knows the topic can read it, so pick a long, hard-to-guess name or use a server with access control."
+}
