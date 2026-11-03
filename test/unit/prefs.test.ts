@@ -24,7 +24,7 @@ describe('readPrefs', () => {
       content: 'details',
     };
     expect(readPrefs((key) => values[key])).toEqual({
-      sources: { task: true, terminal: false, notebook: true, debug: true },
+      sources: { task: true, terminal: false, notebook: true, debug: true, claude: true },
       minimumSeconds: 120,
       onlyWhenAway: false,
       content: 'details',

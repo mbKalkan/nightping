@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 import type { FinishedEvent } from '../../src/extension/events';
 import {
   DETAIL_LIMIT,
+  firstSentence,
   formatDuration,
   formatEvent,
   previewOf,
   samplePreviews,
+  SUMMARY_LIMIT,
 } from '../../src/extension/format';
 import type { Translate } from '../../src/extension/texts';
 
@@ -127,5 +129,69 @@ describe('previews', () => {
     expect(previews.folder.title).toBe('Task · nightping');
     expect(previews.details.title).toBe('build · nightping');
     expect(samplePreviews(english, undefined).folder.title).toBe('Task · my-project');
+  });
+});
+
+describe('Claude Code', () => {
+  const finished: FinishedEvent = {
+    kind: 'claude',
+    state: 'finished',
+    durationMs: 7 * MINUTE,
+    folder: 'my-app',
+    reply: '## Summary\n\n**Done.** The [tests](https://example.com) pass now. Next, the docs.',
+    detail: undefined,
+  };
+
+  it('says the turn finished and how long it took, with the reply only at the details level', () => {
+    expect(formatEvent(english, finished, 'result', 'workspace')).toEqual({
+      title: 'Claude Code',
+      message: 'Finished · 7m',
+      tags: ['white_check_mark'],
+    });
+    // Claude's own folder, not the window's workspace.
+    expect(formatEvent(english, finished, 'folder', 'workspace').title).toBe(
+      'Claude Code · my-app',
+    );
+    expect(formatEvent(english, finished, 'details', 'workspace').message).toBe(
+      'Finished · 7m\nSummary',
+    );
+  });
+
+  it('takes the first sentence of the first line with text, without Markdown', () => {
+    expect(firstSentence('\n\n**Done.** The [tests](https://x) pass.')).toBe('Done.');
+    expect(firstSentence('- `npm test` passes')).toBe('npm test passes');
+    expect(firstSentence('x'.repeat(300))).toHaveLength(SUMMARY_LIMIT);
+    expect(firstSentence('')).toBe('');
+  });
+
+  it('leaves the duration out when the turn started before Nightping saw it', () => {
+    const unknown = { ...finished, durationMs: undefined };
+    expect(formatEvent(english, unknown, 'result', undefined).message).toBe('Finished');
+  });
+
+  it('marks waiting for the user loudly', () => {
+    const approval: FinishedEvent = {
+      ...finished,
+      state: 'approval',
+      durationMs: undefined,
+      reply: undefined,
+      detail: 'Claude needs your permission to use Bash',
+    };
+    expect(formatEvent(english, approval, 'result', undefined)).toEqual({
+      title: 'Claude Code',
+      message: 'Needs your approval',
+      tags: ['warning'],
+      priority: 4,
+    });
+    expect(formatEvent(english, approval, 'details', undefined).message).toBe(
+      'Needs your approval\nClaude needs your permission to use Bash',
+    );
+    const question: FinishedEvent = { ...approval, state: 'question' };
+    expect(formatEvent(english, question, 'details', undefined)).toEqual({
+      title: 'Claude Code · my-app',
+      message: 'Has a question for you',
+      tags: ['question'],
+      priority: 4,
+    });
   });
 });

@@ -4,6 +4,7 @@ import { isServerUrl, isToken, isTopic, normalizeServer } from './config';
 import { samplePreviews } from './format';
 import type { History } from './history';
 import type { Pauser } from './pause';
+import type { ClaudeBridge } from './claude/bridge';
 import { settingFor } from './prefs';
 import {
   currentDestination,
@@ -25,6 +26,7 @@ export interface PanelContext {
   history: History;
   sender: Sender;
   pauser: Pauser;
+  claude: ClaudeBridge;
 }
 
 /** The one Nightping panel: shown again rather than opened twice. */
@@ -72,6 +74,7 @@ export class Panel {
       }),
       context.history.onDidChange(() => void this.update()),
       context.pauser.onDidChange(() => void this.update()),
+      context.claude.onDidChange(() => void this.update()),
       vscode.window.onDidOpenTerminal(() => void this.update()),
       vscode.window.onDidCloseTerminal(() => void this.update()),
       vscode.window.onDidChangeTerminalShellIntegration(() => void this.update()),
@@ -134,6 +137,15 @@ export class Panel {
       case 'resume':
         await vscode.commands.executeCommand('nightping.resume');
         return;
+      case 'connectClaude':
+        await vscode.commands.executeCommand('nightping.connectClaudeCode');
+        return;
+      case 'disconnectClaude':
+        await vscode.commands.executeCommand('nightping.disconnectClaudeCode');
+        return;
+      case 'copyClaudeSettings':
+        await vscode.commands.executeCommand('nightping.copyClaudeCodeSettings');
+        return;
       case 'openShellIntegrationHelp':
         await vscode.env.openExternal(vscode.Uri.parse(SHELL_INTEGRATION_HELP));
         return;
@@ -183,6 +195,7 @@ export class Panel {
         open: vscode.window.terminals.length,
         reporting: vscode.window.terminals.filter((t) => t.shellIntegration !== undefined).length,
       },
+      claude: this.context.claude.status(),
     };
     if (id === this.updating) this.post({ type: 'state', state });
   }

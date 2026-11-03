@@ -53,6 +53,21 @@ export interface PanelStrings {
   preview: string;
   previewHelp: string;
   appliesNow: string;
+  claude: {
+    title: string;
+    hooks: string;
+    state: Record<ClaudeStatus['hooks'], string>;
+    /** `{0}` is the settings file. */
+    help: Record<ClaudeStatus['hooks'], string>;
+    connect: string;
+    reconnect: string;
+    disconnect: string;
+    copy: string;
+    receiving: string;
+    /** `{0}` is the port. */
+    receivingState: Record<ClaudeStatus['receiving'], string>;
+    receivingHelp: string;
+  };
   recent: string;
   recentEmpty: string;
   recentNote: string;
@@ -66,9 +81,15 @@ export interface PanelStrings {
 export type PanelStatus = 'ready' | 'incomplete' | 'invalid';
 
 /** What can finish in VS Code and send a notification. */
-export type SourceKind = 'task' | 'terminal' | 'notebook' | 'debug';
+export type SourceKind = 'task' | 'terminal' | 'notebook' | 'debug' | 'claude';
 
-export const SOURCE_KINDS: readonly SourceKind[] = ['task', 'terminal', 'notebook', 'debug'];
+export const SOURCE_KINDS: readonly SourceKind[] = [
+  'task',
+  'terminal',
+  'notebook',
+  'debug',
+  'claude',
+];
 
 /** How much a notification says: each level adds to the one before. */
 export type ContentLevel = 'result' | 'folder' | 'details';
@@ -90,6 +111,17 @@ export type PrefChange =
   | { key: 'minimumSeconds'; seconds: number }
   | { key: 'onlyWhenAway'; on: boolean }
   | { key: 'content'; content: ContentLevel };
+
+/** Claude Code's hooks and the endpoint they post to. */
+export interface ClaudeStatus {
+  hooks: 'connected' | 'outdated' | 'disconnected' | 'invalid';
+  /** Claude Code's settings folder exists: Claude Code is on this computer. */
+  found: boolean;
+  /** Claude Code's user settings file, with `~` for the home folder. */
+  file: string;
+  receiving: 'off' | 'listening' | 'other-window' | 'other-program';
+  port: number;
+}
 
 /** A notification as the phone shows it: the emoji ntfy puts before the title. */
 export interface NotificationPreview {
@@ -124,6 +156,7 @@ export interface PanelState {
   previews: Record<ContentLevel, NotificationPreview>;
   /** Open terminals, and how many of them report their commands (shell integration). */
   terminals: { open: number; reporting: number };
+  claude: ClaudeStatus;
 }
 
 export type HostToWebviewMessage =
@@ -145,4 +178,7 @@ export type WebviewToHostMessage =
   /** The host asks how long, in VS Code's own list. */
   | { type: 'pause' }
   | { type: 'resume' }
-  | { type: 'openShellIntegrationHelp' };
+  | { type: 'openShellIntegrationHelp' }
+  | { type: 'connectClaude' }
+  | { type: 'disconnectClaude' }
+  | { type: 'copyClaudeSettings' };

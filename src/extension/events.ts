@@ -1,4 +1,4 @@
-// Something that finished in VS Code, as the sources report it. Pure: no VS Code.
+// Something that finished, or waits for the user, as the sources report it. Pure: no VS Code.
 import type { SourceKind } from '../shared/protocol';
 
 interface Run {
@@ -10,13 +10,27 @@ export type FinishedEvent =
   | (Run & { kind: 'task'; name: string; exitCode: number | undefined })
   | (Run & { kind: 'terminal'; commandLine: string; exitCode: number | undefined })
   | (Run & { kind: 'notebook'; file: string; cell: number; success: boolean | undefined })
-  | (Run & { kind: 'debug'; name: string });
+  | (Run & { kind: 'debug'; name: string })
+  | {
+      kind: 'claude';
+      state: 'finished' | 'approval' | 'question';
+      /** Unknown when Nightping did not see the prompt that started the turn. */
+      durationMs: number | undefined;
+      /** Claude Code's working folder, by name. */
+      folder: string | undefined;
+      /** Claude's last reply, for a finished turn. */
+      reply: string | undefined;
+      /** Claude Code's own words about what it waits for. */
+      detail: string | undefined;
+    };
 
 export type Outcome =
   | { kind: 'succeeded' }
   | { kind: 'failed'; exitCode?: number }
   /** It ended, but VS Code does not say how. */
-  | { kind: 'finished' };
+  | { kind: 'finished' }
+  /** An agent waits for the user. */
+  | { kind: 'needs-you' };
 
 export function outcomeOf(event: FinishedEvent): Outcome {
   switch (event.kind) {
@@ -31,5 +45,7 @@ export function outcomeOf(event: FinishedEvent): Outcome {
       return event.success ? { kind: 'succeeded' } : { kind: 'failed' };
     case 'debug':
       return { kind: 'finished' };
+    case 'claude':
+      return event.state === 'finished' ? { kind: 'finished' } : { kind: 'needs-you' };
   }
 }

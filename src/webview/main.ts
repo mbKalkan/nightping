@@ -7,6 +7,7 @@ import {
   suggestTopic,
 } from '../shared/destination';
 import type { HostToWebviewMessage, PanelState, PanelStrings, SentEntry } from '../shared/protocol';
+import { ClaudeCard } from './claude';
 import { button, element } from './dom';
 import { NotifyCard } from './notify';
 import { vscode } from './vscodeApi';
@@ -66,6 +67,7 @@ class PanelView {
   private readonly empty = element('p', 'ng-empty');
   private readonly clear: HTMLButtonElement;
   private readonly notify: NotifyCard;
+  private readonly claude: ClaudeCard;
   private readonly time: Intl.DateTimeFormat;
   private readonly dateTime: Intl.DateTimeFormat;
   private state: PanelState | undefined;
@@ -126,6 +128,10 @@ class PanelView {
     const destination = this.card(strings.destination);
     destination.append(form);
 
+    this.claude = new ClaudeCard(strings.claude);
+    const claude = this.card(strings.claude.title);
+    claude.append(this.claude.element);
+
     this.notify = new NotifyCard(strings, locale);
     const notify = this.card(strings.whenToNotify);
     notify.append(this.notify.element);
@@ -141,7 +147,7 @@ class PanelView {
     const settings = button(strings.allSettings, 'link');
     footer.append(element('p', 'ng-privacy', strings.privacy), settings);
 
-    main.append(header, destination, notify, recent, footer);
+    main.append(header, destination, claude, notify, recent, footer);
     app.replaceChildren(main);
 
     for (const field of [this.server, this.topic, this.token]) {
@@ -190,6 +196,7 @@ class PanelView {
       ? this.strings.tokenSaved
       : this.strings.tokenPlaceholder;
     this.removeToken.hidden = !state.hasToken;
+    this.claude.show(state.claude);
     this.notify.show(state);
     this.renderHistory(state.history);
     this.check();

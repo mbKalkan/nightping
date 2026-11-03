@@ -1,5 +1,6 @@
 // The command palette way to do what the panel does.
 import * as vscode from 'vscode';
+import type { ClaudeBridge } from './claude/bridge';
 import { isServerUrl, isToken, isTopic, normalizeServer, suggestTopic } from './config';
 import { isPauseMinutes, PAUSE_MINUTES, type Pauser } from './pause';
 import { saveDestination, TOKEN_KEY, type Sender, type SendOutcome } from './sender';
@@ -9,6 +10,7 @@ export interface Services {
   secrets: vscode.SecretStorage;
   sender: Sender;
   pauser: Pauser;
+  claude: ClaudeBridge;
 }
 
 /**
@@ -108,10 +110,18 @@ export async function setUp(services: Services): Promise<void> {
   }
 
   await saveDestination(services.secrets, server, topic, token);
-  await sendTest(services);
+  // A first setup is the moment to offer Claude Code, when it is on this computer.
+  const claude = services.claude.status();
+  await sendTest(
+    services,
+    claude.found && claude.hooks === 'disconnected'
+      ? { title: vscode.l10n.t('Connect Claude Code'), command: 'nightping.connectClaudeCode' }
+      : undefined,
+  );
 }
 
-export async function sendTest(services: Services): Promise<void> {
+/** With `next`, a sent test offers that next step in the same message. */
+export async function sendTest(services: Services, next?: Action): Promise<void> {
   const outcome = await vscode.window.withProgress(
     {
       location: vscode.ProgressLocation.Notification,
@@ -119,7 +129,7 @@ export async function sendTest(services: Services): Promise<void> {
     },
     () => services.sender.send(testMessage(vscode.l10n.t)),
   );
-  report(outcome);
+  report(outcome, next);
 }
 
 export async function setToken(services: Services): Promise<void> {
@@ -175,7 +185,7 @@ function tokenProblem(value: string): string | undefined {
     : vscode.l10n.t('An access token has no spaces or special characters.');
 }
 
-function report(outcome: SendOutcome): void {
+function report(outcome: SendOutcome, next?: Action): void {
   switch (outcome.kind) {
     case 'not-ready':
       offer(
@@ -189,8 +199,10 @@ function report(outcome: SendOutcome): void {
     case 'sent':
       // Short on purpose: a collapsed toast shows one line, and the topic is in the status bar
       // tooltip.
-      void vscode.window.showInformationMessage(
+      offer(
+        'info',
         vscode.l10n.t('Test notification sent. Check your phone.'),
+        ...(next ? [next] : []),
       );
       return;
     case 'failed': {

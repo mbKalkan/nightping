@@ -15,7 +15,12 @@ const TAG_EMOJI: Record<string, string> = {
   white_check_mark: '✅',
   checkered_flag: '🏁',
   bell: '🔔',
+  warning: '⚠️',
+  question: '❓',
 };
+
+/** The first sentence of an agent's reply fits on a phone under the result line. */
+export const SUMMARY_LIMIT = 140;
 
 export function formatEvent(
   t: Translate,
@@ -23,17 +28,50 @@ export function formatEvent(
   level: ContentLevel,
   workspace: string | undefined,
 ): Message {
-  const where = level !== 'result' && workspace ? workspace.trim() : '';
+  // An agent says where it works; VS Code's own runs are in this window's workspace.
+  const place = event.kind === 'claude' ? (event.folder ?? workspace) : workspace;
+  const where = level !== 'result' && place ? place.trim() : '';
   const title = [what(t, event, level), where].filter((part) => part !== '').join(SEPARATOR);
-  const message = [result(t, event), formatDuration(t, event.durationMs)].join(SEPARATOR);
+  const duration = event.durationMs === undefined ? '' : formatDuration(t, event.durationMs);
+  const line = [result(t, event), duration].filter((part) => part !== '').join(SEPARATOR);
+  const detail = level === 'details' ? agentDetail(event) : '';
+  return { title, message: detail ? `${line}\n${detail}` : line, ...look(event) };
+}
+
+function look(event: FinishedEvent): Pick<Message, 'tags' | 'priority'> {
   switch (outcomeOf(event).kind) {
     case 'failed':
-      return { title, message, tags: ['x'], priority: 4 };
+      return { tags: ['x'], priority: 4 };
+    case 'needs-you':
+      return event.kind === 'claude' && event.state === 'question'
+        ? { tags: ['question'], priority: 4 }
+        : { tags: ['warning'], priority: 4 };
     case 'succeeded':
-      return { title, message, tags: ['white_check_mark'] };
+      return { tags: ['white_check_mark'] };
     case 'finished':
-      return { title, message, tags: ['checkered_flag'] };
+      // An agent's turn ends as planned; VS Code does not say how other runs ended.
+      return { tags: [event.kind === 'claude' ? 'white_check_mark' : 'checkered_flag'] };
   }
+}
+
+/** The first sentence of the reply, or what the agent waits for; nothing for a question. */
+function agentDetail(event: FinishedEvent): string {
+  if (event.kind !== 'claude') return '';
+  if (event.state === 'finished') return firstSentence(event.reply ?? '');
+  return event.state === 'approval' ? cut(oneLine(event.detail ?? ''), SUMMARY_LIMIT) : '';
+}
+
+/** The first sentence of the first line with text, without Markdown. */
+export function firstSentence(reply: string): string {
+  for (const raw of reply.split(/\r?\n/)) {
+    const line = raw
+      .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+      .replace(/\*\*|__|`/g, '')
+      .replace(/^[#>*|\s-]+/, '')
+      .trim();
+    if (line) return cut(line.split(/(?<=[.!?])\s/, 1)[0], SUMMARY_LIMIT);
+  }
+  return '';
 }
 
 export function previewOf(message: Message): NotificationPreview {
@@ -63,6 +101,7 @@ export function formatDuration(t: Translate, ms: number): string {
 }
 
 function what(t: Translate, event: FinishedEvent, level: ContentLevel): string {
+  if (event.kind === 'claude') return t('Claude Code');
   if (level === 'details') {
     switch (event.kind) {
       case 'task':
@@ -98,11 +137,22 @@ function result(t: Translate, event: FinishedEvent): string {
         : t('Failed (exit {0})', outcome.exitCode);
     case 'finished':
       return event.kind === 'debug' ? t('Ended') : t('Finished');
+    case 'needs-you':
+      return event.kind === 'claude' && event.state === 'question'
+        ? t('Has a question for you')
+        : t('Needs your approval');
   }
 }
 
 /** One line, at most `DETAIL_LIMIT` characters. */
 function shorten(text: string): string {
-  const line = text.replace(/\s+/g, ' ').trim();
-  return line.length > DETAIL_LIMIT ? `${line.slice(0, DETAIL_LIMIT - 1).trimEnd()}…` : line;
+  return cut(oneLine(text), DETAIL_LIMIT);
+}
+
+function oneLine(text: string): string {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+function cut(text: string, limit: number): string {
+  return text.length > limit ? `${text.slice(0, limit - 1).trimEnd()}…` : text;
 }

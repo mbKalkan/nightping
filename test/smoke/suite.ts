@@ -1,10 +1,11 @@
 // Runs inside a real VS Code instance (see scripts/smoke.mjs).
 import * as assert from 'node:assert/strict';
-import { existsSync, writeFileSync } from 'node:fs';
+import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import * as vscode from 'vscode';
+import { hookSettings } from '../../src/extension/claude/settings';
 
 const EXTENSION_ID = 'MBKDevStudio.nightping';
 
@@ -39,6 +40,9 @@ const tests: Record<string, () => Promise<void>> = {
       'nightping.clearToken',
       'nightping.pause',
       'nightping.resume',
+      'nightping.connectClaudeCode',
+      'nightping.disconnectClaudeCode',
+      'nightping.copyClaudeCodeSettings',
       'nightping.openSettings',
     ]) {
       assert.ok(commands.includes(command), command);
@@ -232,6 +236,59 @@ const tests: Record<string, () => Promise<void>> = {
     }
   },
 
+  async 'takes Claude Code hooks added by hand, and notifies about its turns'() {
+    // scripts/smoke.mjs points CLAUDE_CONFIG_DIR at an empty folder and sets the port.
+    const dir = process.env.CLAUDE_CONFIG_DIR;
+    assert.ok(dir, 'scripts/smoke.mjs sets CLAUDE_CONFIG_DIR');
+    const port = 47388;
+    const ntfy = await fakeNtfy();
+    const reset = await useSettings({
+      server: ntfy.server,
+      topic: 'smoke-test',
+      onlyWhenAway: false,
+      // The test's turn lasts milliseconds; by default a turn under 30 seconds stays quiet.
+      minimumDuration: 0,
+      content: 'details',
+    });
+    const file = join(dir, 'settings.json');
+    try {
+      // What Copy Settings gives, pasted in: Nightping sees the file and starts listening.
+      writeFileSync(file, JSON.stringify(hookSettings(port), null, 2));
+      await until(async () => (await status(port)) === 200);
+
+      const session = { session_id: 'smoke', cwd: join(dir, 'my-app') };
+      await hook(port, { ...session, hook_event_name: 'UserPromptSubmit', prompt: 'x' });
+      await hook(port, {
+        ...session,
+        hook_event_name: 'Stop',
+        last_assistant_message: 'Done. Everything passes.',
+        background_tasks: [],
+      });
+      const finished = JSON.parse((await waitFor(() => ntfy.requests[0])).body) as Message;
+      assert.equal(finished.title, 'Claude Code · my-app');
+      assert.match(finished.message, /^Finished · \d+s\nDone\.$/);
+
+      await hook(port, {
+        ...session,
+        hook_event_name: 'Notification',
+        notification_type: 'permission_prompt',
+        message: 'Claude needs your permission to use Bash',
+      });
+      const approval = JSON.parse((await waitFor(() => ntfy.requests[1])).body) as Message;
+      assert.equal(
+        approval.message,
+        'Needs your approval\nClaude needs your permission to use Bash',
+      );
+      assert.equal(approval.priority, 4);
+    } finally {
+      // Without the hooks, the endpoint closes.
+      rmSync(file, { force: true });
+      await until(async () => (await status(port)) === undefined);
+      await reset();
+      await ntfy.close();
+    }
+  },
+
   async 'keeps a short successful task quiet'() {
     const ntfy = await fakeNtfy();
     const reset = await useSettings({
@@ -249,6 +306,39 @@ const tests: Record<string, () => Promise<void>> = {
     }
   },
 };
+
+interface Message {
+  title: string;
+  message: string;
+  priority?: number;
+}
+
+/** Posts a hook payload the way Claude Code does. */
+async function hook(port: number, payload: Record<string, unknown>): Promise<void> {
+  const response = await fetch(`http://127.0.0.1:${port}/nightping/claude-code`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  assert.equal(response.status, 204);
+}
+
+/** The endpoint's status answer, or `undefined` when nothing listens. */
+async function status(port: number): Promise<number | undefined> {
+  try {
+    return (await fetch(`http://127.0.0.1:${port}/nightping/status`)).status;
+  } catch {
+    return undefined;
+  }
+}
+
+async function until(probe: () => Promise<boolean>, timeoutMs = 30_000): Promise<void> {
+  const start = Date.now();
+  while (!(await probe())) {
+    if (Date.now() - start > timeoutMs) throw new Error('Timed out waiting for condition.');
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+}
 
 /** Sets `nightping.*` user settings; the returned function puts the defaults back. */
 async function useSettings(values: Record<string, unknown>): Promise<() => Promise<void>> {

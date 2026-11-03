@@ -69,6 +69,21 @@
         "category": "%category%"
       },
       {
+        "command": "nightping.connectClaudeCode",
+        "title": "%command.connectClaudeCode%",
+        "category": "%category%"
+      },
+      {
+        "command": "nightping.disconnectClaudeCode",
+        "title": "%command.disconnectClaudeCode%",
+        "category": "%category%"
+      },
+      {
+        "command": "nightping.copyClaudeCodeSettings",
+        "title": "%command.copyClaudeCodeSettings%",
+        "category": "%category%"
+      },
+      {
         "command": "nightping.setToken",
         "title": "%command.setToken%",
         "category": "%category%"
@@ -93,6 +108,14 @@
         {
           "command": "nightping.resume",
           "when": "nightping.paused"
+        },
+        {
+          "command": "nightping.connectClaudeCode",
+          "when": "nightping.claudeHooks != connected"
+        },
+        {
+          "command": "nightping.disconnectClaudeCode",
+          "when": "nightping.claudeHooks == connected || nightping.claudeHooks == outdated"
         }
       ]
     },
@@ -141,20 +164,27 @@
           "order": 6,
           "markdownDescription": "%config.notifyOn.debugSessions%"
         },
+        "nightping.notifyOn.claudeCode": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "order": 7,
+          "markdownDescription": "%config.notifyOn.claudeCode%"
+        },
         "nightping.minimumDuration": {
           "type": "number",
           "default": 30,
           "minimum": 0,
           "maximum": 86400,
           "scope": "application",
-          "order": 7,
+          "order": 8,
           "markdownDescription": "%config.minimumDuration%"
         },
         "nightping.onlyWhenAway": {
           "type": "boolean",
           "default": true,
           "scope": "application",
-          "order": 8,
+          "order": 9,
           "markdownDescription": "%config.onlyWhenAway%"
         },
         "nightping.content": {
@@ -166,13 +196,22 @@
           ],
           "default": "result",
           "scope": "application",
-          "order": 9,
+          "order": 10,
           "markdownDescription": "%config.content%",
           "markdownEnumDescriptions": [
             "%config.content.result%",
             "%config.content.folder%",
             "%config.content.details%"
           ]
+        },
+        "nightping.port": {
+          "type": "number",
+          "default": 47391,
+          "minimum": 1024,
+          "maximum": 65535,
+          "scope": "application",
+          "order": 11,
+          "markdownDescription": "%config.port%"
         }
       }
     }

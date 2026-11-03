@@ -7,6 +7,9 @@
   "command.sendTest": "Send Test Notification",
   "command.pause": "Pause Notifications…",
   "command.resume": "Resume Notifications",
+  "command.connectClaudeCode": "Connect Claude Code…",
+  "command.disconnectClaudeCode": "Disconnect Claude Code…",
+  "command.copyClaudeCodeSettings": "Copy Claude Code Hook Settings",
   "command.setToken": "Set Access Token…",
   "command.clearToken": "Clear Access Token",
   "command.openSettings": "Open Settings",
@@ -16,10 +19,12 @@
   "config.notifyOn.terminalCommands": "Notify when a command in a terminal finishes. Works in terminals with [shell integration](https://code.visualstudio.com/docs/terminal/shell-integration).",
   "config.notifyOn.notebookCells": "Notify when a notebook cell finishes running.",
   "config.notifyOn.debugSessions": "Notify when a debug session ends.",
+  "config.notifyOn.claudeCode": "Notify when Claude Code finishes a turn, asks you something or waits for your approval. Needs **Nightping: Connect Claude Code…**.",
   "config.minimumDuration": "Runs that succeed in less than this many seconds stay quiet. Failures notify at any duration. `0` notifies about every run.",
   "config.onlyWhenAway": "Stay quiet while you are using this VS Code window: it is focused and you used it in the last few seconds.",
   "config.content": "What a notification says. Everything in it goes to your ntfy server.",
   "config.content.result": "The kind of run, its result and duration, for example `Task` / `Failed (exit 1) · 4m 12s`.",
   "config.content.folder": "Also the workspace name.",
-  "config.content.details": "Also the task name, command line, notebook file name or debug configuration name."
+  "config.content.details": "Also the task name, command line, notebook file name or debug configuration name.",
+  "config.port": "Port on `127.0.0.1` where Nightping receives Claude Code's events. After a change, reconnect Claude Code so that its hooks use the new port."
 }
