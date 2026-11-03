@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import type { DestinationState } from './config';
 
-/** Says whether Nightping can send, and opens its settings when clicked. */
+/** Says whether Nightping can send. A click opens its settings, or the setup until it can send. */
 export class StatusBar implements vscode.Disposable {
   private readonly item = vscode.window.createStatusBarItem(
     'nightping.status',
@@ -11,13 +11,14 @@ export class StatusBar implements vscode.Disposable {
 
   constructor() {
     this.item.name = 'Nightping';
-    this.item.command = 'nightping.openSettings';
   }
 
   show(state: DestinationState): void {
+    this.item.command = state.kind === 'ready' ? 'nightping.openSettings' : 'nightping.setUp';
     if (state.kind === 'ready') {
       const { server, topic } = state.destination;
-      this.item.text = '$(bell)';
+      // Not a bell: VS Code's own notification bell sits right next to it.
+      this.item.text = '$(device-mobile)';
       this.item.tooltip = vscode.l10n.t(
         'Nightping sends notifications to {0}',
         `${server}/${topic}`,

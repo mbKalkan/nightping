@@ -2,7 +2,11 @@
   "displayName": "Nightping — ntfy ile Telefon Bildirimleri",
   "description": "Görevler, terminal komutları, notebook'lar, debug oturumları ya da AI ajanları bitince veya sizi beklerken kendi ntfy sunucunuz ya da topic'iniz üzerinden telefona bildirim. Hazır sunucu yok, telemetri yok.",
   "category": "Nightping",
+  "command.setUp": "Kurulum…",
+  "command.sendTest": "Test Bildirimi Gönder",
+  "command.setToken": "Erişim Token'ını Gir…",
+  "command.clearToken": "Erişim Token'ını Sil",
   "command.openSettings": "Ayarları Aç",
-  "config.server": "ntfy sunucunuzun adresi, örneğin `https://ntfy.sh` ya da `https://ntfy.example.com`. Nightping'in hazır bir sunucusu yoktur; bunu ve bir topic'i girene kadar hiçbir şey göndermez.",
+  "config.server": "ntfy sunucunuzun adresi, örneğin `https://ntfy.sh` ya da `https://ntfy.example.com`. Nightping'in hazır bir sunucusu yoktur; bunu ve bir topic'i girene kadar hiçbir şey göndermez. Sunucunuz erişim token'ı istiyorsa token **Nightping: Erişim Token'ını Gir…** komutuyla girilir ve burada değil, gizli depoda tutulur.",
   "config.topic": "Bildirimlerin yayımlanacağı ntfy topic'i: harf, rakam, `-` ve `_`, en çok 64 karakter. Herkese açık bir sunucuda topic'i bilen herkes bildirimleri okuyabilir; uzun, tahmin edilmesi zor bir ad seçin ya da erişim denetimi olan bir sunucu kullanın."
 }

@@ -44,6 +44,26 @@
   "contributes": {
     "commands": [
       {
+        "command": "nightping.setUp",
+        "title": "%command.setUp%",
+        "category": "%category%"
+      },
+      {
+        "command": "nightping.sendTest",
+        "title": "%command.sendTest%",
+        "category": "%category%"
+      },
+      {
+        "command": "nightping.setToken",
+        "title": "%command.setToken%",
+        "category": "%category%"
+      },
+      {
+        "command": "nightping.clearToken",
+        "title": "%command.clearToken%",
+        "category": "%category%"
+      },
+      {
         "command": "nightping.openSettings",
         "title": "%command.openSettings%",
         "category": "%category%"
