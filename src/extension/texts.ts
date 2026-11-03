@@ -50,6 +50,7 @@ export function panelStrings(t: Translate): PanelStrings {
       terminal: t('Terminal commands finish'),
       notebook: t('Notebook cells finish'),
       debug: t('Debug sessions end'),
+      claude: t('Claude Code finishes or needs you'),
     },
     terminalHelp: t('Works in terminals with shell integration.'),
     terminalNone: t(
@@ -75,6 +76,51 @@ export function panelStrings(t: Translate): PanelStrings {
     preview: t('Preview'),
     previewHelp: t('A failed build task, as your phone shows it.'),
     appliesNow: t('Changes here apply right away.'),
+    claude: {
+      title: t('Claude Code'),
+      hooks: t('Hooks'),
+      state: {
+        connected: t('Connected'),
+        outdated: t('Needs an update'),
+        disconnected: t('Not connected'),
+        invalid: t('Settings file is not valid JSON'),
+      },
+      help: {
+        connected: t(
+          'Claude Code tells Nightping on this computer when you send a prompt, when it finishes and when it needs you. Disconnect removes only these hooks from {0}.',
+          '{0}',
+        ),
+        outdated: t(
+          'The Nightping hooks in {0} are incomplete or use another port. Reconnect to fix them.',
+          '{0}',
+        ),
+        disconnected: t(
+          'Get a notification when Claude Code finishes a turn, asks you something or waits for your approval, in a terminal or in VS Code. Connect adds three hooks to {0} and keeps a copy of the file. Copy Settings copies them, so that you can add them yourself or ask Claude Code to.',
+          '{0}',
+        ),
+        invalid: t(
+          '{0} is not valid JSON, so Nightping does not change it. Fix it, or add the hooks yourself with Copy Settings.',
+          '{0}',
+        ),
+      },
+      connect: t('Connect Claude Code'),
+      reconnect: t('Reconnect'),
+      disconnect: t('Disconnect'),
+      copy: t('Copy Settings'),
+      receiving: t('Receiving'),
+      receivingState: {
+        off: t('Starts once Claude Code is connected.'),
+        listening: t('In this window, on port {0}.', '{0}'),
+        'other-window': t('In another VS Code window, on port {0}.', '{0}'),
+        'other-program': t(
+          'Port {0} is used by another program. Choose another port in the settings, then reconnect.',
+          '{0}',
+        ),
+      },
+      receivingHelp: t(
+        'Only while VS Code is open. When it is closed, Claude Code goes on as usual.',
+      ),
+    },
     recent: t('Recent notifications'),
     recentEmpty: t('Nothing sent yet.'),
     recentNote: t('Kept on this computer only.'),

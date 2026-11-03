@@ -28,7 +28,15 @@ export function decide(
   if (!prefs.sources[event.kind]) return 'off';
   if (paused) return 'paused';
   if (prefs.onlyWhenAway && presence.focused && presence.active) return 'present';
-  if (outcomeOf(event).kind !== 'failed' && event.durationMs < prefs.minimumSeconds * 1000) {
+  // Failures and agents waiting for the user notify at any duration, and so does a run whose
+  // length is unknown.
+  const outcome = outcomeOf(event).kind;
+  if (
+    outcome !== 'failed' &&
+    outcome !== 'needs-you' &&
+    event.durationMs !== undefined &&
+    event.durationMs < prefs.minimumSeconds * 1000
+  ) {
     return 'short';
   }
   return 'send';

@@ -10,10 +10,35 @@ Phone push notifications from VS Code, through **your own [ntfy](https://ntfy.sh
 - **Terminal commands**: a command finished, with its exit code. This needs [shell integration](https://code.visualstudio.com/docs/terminal/shell-integration), which bash, zsh, fish, Git Bash and PowerShell 7 have; Windows PowerShell 5.1 has it only when scripts are allowed to run. The panel tells you when none of your open terminals has it.
 - **Notebook cells**: a cell finished running.
 - **Debug sessions**: a debug session ended.
+- **Claude Code**: a turn finished, Claude asks you something, or it waits for your approval; in a terminal or in VS Code's Claude Code panel. See [Claude Code](#claude-code) below.
 
-Coming next: **AI agents** (Claude Code built in, plus Codex, Copilot, Gemini CLI, Cursor and others through their hooks: a turn finished, or the agent is waiting for your approval) and a `nightping.send` command for other extensions and key bindings.
+Coming next: other AI agents (Codex, Copilot, Gemini CLI, Cursor and others through their hooks) and a `nightping.send` command for other extensions and key bindings.
 
-A notification reads at a glance: the title says what finished, the message how it ended and how long it took, for example **❌ Task** / *Failed (exit 1) · 4m 12s*. Failures arrive at high priority.
+A notification reads at a glance: the title says what finished, the message how it ended and how long it took, for example **❌ Task** / *Failed (exit 1) · 4m 12s*. Failures, questions and approval requests arrive at high priority.
+
+## Claude Code
+
+**Connect it with one click.** In the Nightping panel, click **Connect Claude Code** (or run **Nightping: Connect Claude Code…**). After you confirm, Nightping adds three HTTP hooks to Claude Code's user settings, `~/.claude/settings.json` (or the folder an absolute `CLAUDE_CONFIG_DIR` names): when you send a prompt, when Claude finishes, and when it needs you. It saves a copy of the file as `settings.json.nightping.bak` first and leaves your other settings and hooks as they are. **Disconnect** removes only Nightping's hooks. Claude Code picks the change up without a restart. When you set up Nightping with **Nightping: Set Up…** and Claude Code is on the computer, the test notification offers to connect it.
+
+**Or add the hooks yourself.** **Copy Settings** (or **Nightping: Copy Claude Code Hook Settings**) puts them on the clipboard; add them under `"hooks"` in the settings file, or paste them to Claude Code and ask it to add them to your user settings:
+
+```json
+{
+  "hooks": {
+    "UserPromptSubmit": [{ "hooks": [{ "type": "http", "url": "http://127.0.0.1:47391/nightping/claude-code", "timeout": 5 }] }],
+    "Stop": [{ "hooks": [{ "type": "http", "url": "http://127.0.0.1:47391/nightping/claude-code", "timeout": 5 }] }],
+    "Notification": [{ "hooks": [{ "type": "http", "url": "http://127.0.0.1:47391/nightping/claude-code", "timeout": 5 }] }]
+  }
+}
+```
+
+How it works:
+
+- The hooks post to Nightping on this computer only, at `127.0.0.1` on port 47391 (`nightping.port`; after a change, reconnect). Your ntfy server, topic and token never go into Claude Code's settings. Nightping answers at once with an empty reply, so Claude Code never waits for it and never changes what it does.
+- One VS Code window receives the events; when it closes, another one takes over within seconds. While VS Code is closed, the hooks reach nobody and Claude Code goes on as usual.
+- The same rules as for everything else apply: quiet while you are using the VS Code window, the minimum duration for finished turns (questions and approval requests notify at once), pause, and the content level. At the **details** level a finished turn adds the first sentence of Claude's reply, and an approval request what Claude asks permission for; this goes to your server.
+- A turn in which a subagent is still running is not finished yet: Claude goes on when the subagent is done, and that end notifies.
+- If you already get Claude Code notifications another way (your own hook, for example), turn that off, or they arrive twice.
 
 ## When it notifies
 

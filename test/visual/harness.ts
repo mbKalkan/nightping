@@ -140,6 +140,13 @@ export const notSetUp: PanelState = {
   prefs: DEFAULT_PREFS,
   previews: samplePreviews(english, 'my-project'),
   terminals: { open: 0, reporting: 0 },
+  claude: {
+    hooks: 'disconnected',
+    found: true,
+    file: '~/.claude/settings.json',
+    receiving: 'off',
+    port: 47391,
+  },
 };
 
 const NOW = Date.now();
@@ -153,6 +160,13 @@ export const ready: PanelState = {
   prefs: DEFAULT_PREFS,
   previews: samplePreviews(english, 'my-project'),
   terminals: { open: 2, reporting: 1 },
+  claude: {
+    hooks: 'connected',
+    found: true,
+    file: '~/.claude/settings.json',
+    receiving: 'listening',
+    port: 47391,
+  },
   history: [
     {
       time: NOW - 2 * MINUTE,

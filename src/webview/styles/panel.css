@@ -97,6 +97,26 @@ body {
   background: var(--ng-warning);
 }
 
+.ng-status[data-status='error']::before {
+  background: var(--ng-error);
+}
+
+/* Claude Code: the hooks' state, then the buttons that change them. */
+.ng-claude-state {
+  padding-top: 3px;
+}
+
+.ng-claude-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* On the label's line, warning or not (a warning has its own top margin). */
+.ng-stack > .ng-claude-receiving {
+  margin: 5px 0 0;
+}
+
 .ng-status[data-status='paused']::before {
   background: var(--ng-quiet);
 }

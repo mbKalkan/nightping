@@ -19,7 +19,7 @@ for (const theme of ['dark', 'light', 'hcDark', 'hcLight'] as ThemeName[]) {
 
       await expect(page.getByRole('main', { name: strings.title })).toBeVisible();
       await expect(page.getByRole('heading', { level: 1 })).toHaveText(strings.title);
-      await expect(page.locator('.ng-status')).toHaveText(strings.status.incomplete);
+      await expect(page.locator('.ng-header .ng-status')).toHaveText(strings.status.incomplete);
       await expect(server(page)).toHaveValue('');
       // A first setup starts from a random topic that nobody can guess.
       await expect(topic(page)).toHaveValue(/^nightping-[a-z0-9]{20}$/);
@@ -38,7 +38,7 @@ for (const theme of ['dark', 'light', 'hcDark', 'hcLight'] as ThemeName[]) {
       const panel = await openPanel(page, theme);
       await panel.init(ready);
 
-      await expect(page.locator('.ng-status')).toHaveText(strings.status.ready);
+      await expect(page.locator('.ng-header .ng-status')).toHaveText(strings.status.ready);
       await expect(server(page)).toHaveValue(ready.server);
       await expect(topic(page)).toHaveValue(ready.topic);
       // The token itself never reaches the panel; it only knows one is saved.
@@ -62,7 +62,7 @@ for (const theme of ['dark', 'light', 'hcDark', 'hcLight'] as ThemeName[]) {
       const panel = await openPanel(page, theme);
       await panel.init({ ...ready, terminals: { open: 1, reporting: 0 } });
 
-      for (const kind of ['task', 'terminal', 'notebook', 'debug'] as const) {
+      for (const kind of ['task', 'terminal', 'notebook', 'debug', 'claude'] as const) {
         await expect(page.getByLabel(strings.sources[kind])).toBeChecked();
       }
       await expect(minimum(page)).toHaveValue('30');
@@ -75,10 +75,25 @@ for (const theme of ['dark', 'light', 'hcDark', 'hcLight'] as ThemeName[]) {
       expect(panel.problems).toEqual([]);
     });
 
+    test('offers to connect Claude Code', async ({ page }) => {
+      const panel = await openPanel(page, theme);
+      await panel.init({ ...ready, claude: notSetUp.claude });
+      const card = claudeCard(page);
+      await expect(card.getByRole('status')).toHaveText(strings.claude.state.disconnected);
+      await expect(card.getByRole('button', { name: strings.claude.connect })).toBeVisible();
+      await expect(card.getByRole('button', { name: strings.claude.copy })).toBeVisible();
+      await expect(card.getByRole('button', { name: strings.claude.disconnect })).toBeHidden();
+      await expect(card).toContainText('~/.claude/settings.json');
+      await expect(card.getByText(strings.claude.receiving)).toBeHidden();
+      expect(await lowestTextContrast(page)).toBeGreaterThanOrEqual(theme === 'hcDark' ? 7 : 4.5);
+      await card.screenshot({ path: `${SCREENS}/claude-${theme}.png` });
+      expect(panel.problems).toEqual([]);
+    });
+
     test('says when notifications are paused', async ({ page }) => {
       const panel = await openPanel(page, theme);
       await panel.init({ ...ready, pause: {} });
-      await expect(page.locator('.ng-status')).toHaveText(strings.pausedUntilResumed);
+      await expect(page.locator('.ng-header .ng-status')).toHaveText(strings.pausedUntilResumed);
       await expect(page.getByRole('button', { name: strings.resume })).toBeVisible();
       expect(await lowestTextContrast(page)).toBeGreaterThanOrEqual(theme === 'hcDark' ? 7 : 4.5);
       await page.locator('.ng-header').screenshot({ path: `${SCREENS}/paused-${theme}.png` });
@@ -88,6 +103,51 @@ for (const theme of ['dark', 'light', 'hcDark', 'hcLight'] as ThemeName[]) {
 }
 
 const notifyCard = (page: Page) => page.getByRole('region', { name: strings.whenToNotify });
+const claudeCard = (page: Page) => page.getByRole('region', { name: strings.claude.title });
+
+test('connects, disconnects and copies the Claude Code hooks', async ({ page }) => {
+  const panel = await openPanel(page, 'dark');
+  await panel.init({ ...ready, claude: notSetUp.claude });
+  const card = claudeCard(page);
+  await card.getByRole('button', { name: strings.claude.connect }).click();
+  await card.getByRole('button', { name: strings.claude.copy }).click();
+
+  await panel.post({ type: 'state', state: ready });
+  await expect(card.getByRole('status')).toHaveText(strings.claude.state.connected);
+  await expect(card.getByRole('button', { name: strings.claude.connect })).toBeHidden();
+  await expect(card.getByText('In this window, on port 47391.')).toBeVisible();
+  await card.getByRole('button', { name: strings.claude.disconnect }).click();
+  expect(await panel.sent()).toEqual([
+    { type: 'connectClaude' },
+    { type: 'copyClaudeSettings' },
+    { type: 'disconnectClaude' },
+  ]);
+});
+
+test('shows what is wrong with the Claude Code hooks, and the way out', async ({ page }) => {
+  const panel = await openPanel(page, 'dark');
+  await panel.init(ready);
+  const card = claudeCard(page);
+  const show = (claude: Partial<typeof ready.claude>) =>
+    panel.post({ type: 'state', state: { ...ready, claude: { ...ready.claude, ...claude } } });
+
+  await show({ hooks: 'outdated', receiving: 'other-program' });
+  await expect(card.getByRole('status')).toHaveText(strings.claude.state.outdated);
+  await expect(card.getByRole('button', { name: strings.claude.reconnect })).toBeVisible();
+  const busy = card.getByText(/^Port 47391 is used by another program/);
+  await expect(busy).toHaveClass(/ng-warning/);
+  await card.screenshot({ path: `${SCREENS}/claude-outdated-dark.png` });
+
+  await show({ receiving: 'other-window' });
+  await expect(card.getByText('In another VS Code window, on port 47391.')).toBeVisible();
+
+  // A file Nightping cannot read is left alone: only copying is offered.
+  await show({ hooks: 'invalid', receiving: 'off' });
+  await expect(card.getByRole('status')).toHaveText(strings.claude.state.invalid);
+  await expect(card.getByRole('button', { name: strings.claude.connect })).toBeHidden();
+  await expect(card.getByRole('button', { name: strings.claude.disconnect })).toBeHidden();
+  await expect(card.getByRole('button', { name: strings.claude.copy })).toBeVisible();
+});
 const minimum = (page: Page) => page.getByLabel(strings.minimum);
 const preview = (page: Page) => page.locator('.ng-preview p');
 
@@ -103,20 +163,20 @@ test('pauses and resumes from the header', async ({ page }) => {
   const today = new Date();
   today.setHours(23, 59, 0, 0);
   await panel.post({ type: 'state', state: { ...ready, pause: { until: today.getTime() } } });
-  await expect(page.locator('.ng-status')).toHaveText(/^Paused until 11:59\sPM$/);
+  await expect(page.locator('.ng-header .ng-status')).toHaveText(/^Paused until 11:59\sPM$/);
   const tomorrow = new Date(today);
   tomorrow.setDate(today.getDate() + 1);
   tomorrow.setHours(9, 30);
   const day = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' }).format(tomorrow);
   await panel.post({ type: 'state', state: { ...ready, pause: { until: tomorrow.getTime() } } });
-  await expect(page.locator('.ng-status')).toHaveText(
+  await expect(page.locator('.ng-header .ng-status')).toHaveText(
     new RegExp(`^Paused until ${day}, 9:30\\sAM$`),
   );
   await page.getByRole('button', { name: strings.resume }).click();
   expect(await panel.sent()).toEqual([{ type: 'pause' }, { type: 'resume' }]);
 
   await panel.post({ type: 'state', state: ready });
-  await expect(page.locator('.ng-status')).toHaveText(strings.status.ready);
+  await expect(page.locator('.ng-header .ng-status')).toHaveText(strings.status.ready);
   await expect(page.getByRole('button', { name: strings.pause })).toBeVisible();
 });
 
@@ -145,7 +205,7 @@ test('follows the settings when they change elsewhere', async ({ page }) => {
     state: {
       ...ready,
       prefs: {
-        sources: { task: false, terminal: true, notebook: true, debug: false },
+        sources: { task: false, terminal: true, notebook: true, debug: false, claude: true },
         minimumSeconds: 45,
         onlyWhenAway: false,
         content: 'folder',
@@ -207,7 +267,7 @@ test('shows a wrong saved setting at once', async ({ page }) => {
     topic: 'my topic',
     status: 'invalid',
   });
-  await expect(page.locator('.ng-status')).toHaveText(strings.status.invalid);
+  await expect(page.locator('.ng-header .ng-status')).toHaveText(strings.status.invalid);
   await expect(page.getByText(strings.serverInvalid)).toBeVisible();
   await expect(page.getByText(strings.topicInvalid)).toBeVisible();
   await page.screenshot({ path: `${SCREENS}/invalid-dark.png` });

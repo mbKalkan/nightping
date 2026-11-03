@@ -27,15 +27,23 @@ const userData = mkdtempSync(join(tmpdir(), 'nightping-smoke-'));
 mkdirSync(join(userData, 'User'));
 writeFileSync(
   join(userData, 'User', 'settings.json'),
-  JSON.stringify({ 'update.mode': 'none', 'extensions.autoUpdate': false }),
+  // A port of its own, so that a Nightping in the developer's VS Code does not answer.
+  JSON.stringify({
+    'update.mode': 'none',
+    'extensions.autoUpdate': false,
+    'nightping.port': 47388,
+  }),
 );
 // An empty folder to open: tasks run in a workspace folder.
 const folder = mkdtempSync(join(tmpdir(), 'nightping-smoke-folder-'));
+// Claude Code's settings for the test, away from the developer's own ~/.claude.
+const claudeDir = mkdtempSync(join(tmpdir(), 'nightping-smoke-claude-'));
 try {
   await runTests({
     version: process.env.VSCODE_VERSION ?? 'stable',
     extensionDevelopmentPath: root,
     extensionTestsPath: suite,
+    extensionTestsEnv: { CLAUDE_CONFIG_DIR: claudeDir },
     launchArgs: [
       folder,
       '--disable-extensions',
@@ -46,7 +54,7 @@ try {
     ],
   });
 } finally {
-  for (const dir of [userData, folder]) {
+  for (const dir of [userData, folder, claudeDir]) {
     rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 });
   }
 }

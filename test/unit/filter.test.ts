@@ -45,6 +45,22 @@ describe('decide', () => {
     expect(decide(task(1, 600), noTasks, away, false)).toBe('off');
   });
 
+  it('sends an agent waiting for the user at once, and a turn of unknown length', () => {
+    const claude = (state: 'finished' | 'approval', durationMs: number | undefined) =>
+      ({
+        kind: 'claude',
+        state,
+        durationMs,
+        folder: undefined,
+        reply: undefined,
+        detail: undefined,
+      }) as const;
+    expect(decide(claude('approval', undefined), DEFAULT_PREFS, away, false)).toBe('send');
+    expect(decide(claude('finished', undefined), DEFAULT_PREFS, away, false)).toBe('send');
+    expect(decide(claude('finished', 5_000), DEFAULT_PREFS, away, false)).toBe('short');
+    expect(decide(claude('approval', undefined), DEFAULT_PREFS, atDesk, false)).toBe('present');
+  });
+
   it('sends nothing while notifications are paused', () => {
     expect(decide(task(1, 600), DEFAULT_PREFS, away, true)).toBe('paused');
   });
