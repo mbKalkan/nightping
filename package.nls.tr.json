@@ -9,5 +9,15 @@
   "command.clearToken": "Erişim Token'ını Sil",
   "command.openSettings": "Ayarları Aç",
   "config.server": "ntfy sunucunuzun adresi, örneğin `https://ntfy.sh` ya da `https://ntfy.example.com`. Nightping'in hazır bir sunucusu yoktur; bunu ve bir topic'i girene kadar hiçbir şey göndermez. Sunucunuz erişim token'ı istiyorsa token **Nightping: Erişim Token'ını Gir…** komutuyla girilir ve burada değil, gizli depoda tutulur.",
-  "config.topic": "Bildirimlerin yayımlanacağı ntfy topic'i: harf, rakam, `-` ve `_`, en çok 64 karakter. Herkese açık bir sunucuda topic'i bilen herkes bildirimleri okuyabilir; uzun, tahmin edilmesi zor bir ad seçin ya da erişim denetimi olan bir sunucu kullanın."
+  "config.topic": "Bildirimlerin yayımlanacağı ntfy topic'i: harf, rakam, `-` ve `_`, en çok 64 karakter. Herkese açık bir sunucuda topic'i bilen herkes bildirimleri okuyabilir; uzun, tahmin edilmesi zor bir ad seçin ya da erişim denetimi olan bir sunucu kullanın.",
+  "config.notifyOn.tasks": "Bir görev bitince bildirim gönder.",
+  "config.notifyOn.terminalCommands": "Terminaldeki bir komut bitince bildirim gönder. [Shell integration](https://code.visualstudio.com/docs/terminal/shell-integration) olan terminallerde çalışır.",
+  "config.notifyOn.notebookCells": "Bir notebook hücresinin çalışması bitince bildirim gönder.",
+  "config.notifyOn.debugSessions": "Bir debug oturumu bitince bildirim gönder.",
+  "config.minimumDuration": "Bu kadar saniyeden kısa sürede başarıyla biten işler bildirim göndermez. Başarısızlıklar her sürede bildirilir. `0` her işi bildirir.",
+  "config.onlyWhenAway": "Bu VS Code penceresini kullanırken (pencere odakta ve son birkaç saniyede kullandınız) bildirim gönderme.",
+  "config.content": "Bildirimin ne söyleyeceği. İçindeki her şey ntfy sunucunuza gider.",
+  "config.content.result": "İşin türü, sonucu ve süresi, örneğin `Görev` / `Başarısız (çıkış 1) · 4 dk 12 sn`.",
+  "config.content.folder": "Çalışma alanının adı da.",
+  "config.content.details": "Görev adı, komut satırı, notebook dosyasının adı ya da debug yapılandırmasının adı da."
 }

@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { extname, join } from 'node:path';
 import type { Page } from '@playwright/test';
+import { samplePreviews } from '../../src/extension/format';
+import { DEFAULT_PREFS } from '../../src/extension/prefs';
 import { panelStrings, type Translate } from '../../src/extension/texts';
 import { buildWebviewHtml } from '../../src/extension/webviewHtml';
 import type {
@@ -135,6 +137,9 @@ export const notSetUp: PanelState = {
   hasToken: false,
   status: 'incomplete',
   history: [],
+  prefs: DEFAULT_PREFS,
+  previews: samplePreviews(english, 'my-project'),
+  terminals: { open: 0, reporting: 0 },
 };
 
 const NOW = Date.now();
@@ -145,6 +150,9 @@ export const ready: PanelState = {
   topic: 'my-topic',
   hasToken: true,
   status: 'ready',
+  prefs: DEFAULT_PREFS,
+  previews: samplePreviews(english, 'my-project'),
+  terminals: { open: 2, reporting: 1 },
   history: [
     {
       time: NOW - 2 * MINUTE,

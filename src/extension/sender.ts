@@ -5,8 +5,10 @@ import {
   type Destination,
   type DestinationState,
 } from './config';
+import type { NotifyPrefs } from '../shared/protocol';
 import type { History } from './history';
 import { publish, type Message, type PublishResult } from './ntfy';
+import { readPrefs } from './prefs';
 import { failureText } from './texts';
 
 /** SecretStorage key; secrets are already kept apart per extension. */
@@ -42,6 +44,11 @@ export async function saveDestination(
 export function currentDestination(): DestinationState {
   const values = vscode.workspace.getConfiguration('nightping');
   return readDestination((key) => values.get(key));
+}
+
+export function currentPrefs(): NotifyPrefs {
+  const values = vscode.workspace.getConfiguration('nightping');
+  return readPrefs((key) => values.get(key));
 }
 
 /** Sends to the server and topic in the settings, and writes each try to the history. */

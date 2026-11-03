@@ -1,12 +1,22 @@
 import * as vscode from 'vscode';
 import type { HostToWebviewMessage, PanelState, WebviewToHostMessage } from '../shared/protocol';
 import { isServerUrl, isToken, isTopic, normalizeServer } from './config';
+import { samplePreviews } from './format';
 import type { History } from './history';
-import { currentDestination, saveDestination, TOKEN_KEY, type Sender } from './sender';
+import { settingFor } from './prefs';
+import {
+  currentDestination,
+  currentPrefs,
+  saveDestination,
+  TOKEN_KEY,
+  type Sender,
+} from './sender';
 import { panelStrings, testMessage } from './texts';
 import { buildWebviewHtml } from './webviewHtml';
 
 export const PANEL_VIEW_TYPE = 'nightping.panel';
+
+const SHELL_INTEGRATION_HELP = 'https://code.visualstudio.com/docs/terminal/shell-integration';
 
 export interface PanelContext {
   extensionUri: vscode.Uri;
@@ -59,6 +69,9 @@ export class Panel {
         if (event.key === TOKEN_KEY) void this.update();
       }),
       context.history.onDidChange(() => void this.update()),
+      vscode.window.onDidOpenTerminal(() => void this.update()),
+      vscode.window.onDidCloseTerminal(() => void this.update()),
+      vscode.window.onDidChangeTerminalShellIntegration(() => void this.update()),
       panel.onDidDispose(() => this.dispose()),
     );
   }
@@ -104,6 +117,17 @@ export class Panel {
       case 'openSettings':
         await vscode.commands.executeCommand('nightping.openSettings');
         return;
+      case 'setPref': {
+        const setting = settingFor(message.change);
+        if (!setting) return;
+        await vscode.workspace
+          .getConfiguration('nightping')
+          .update(setting.key, setting.value, vscode.ConfigurationTarget.Global);
+        return;
+      }
+      case 'openShellIntegrationHelp':
+        await vscode.env.openExternal(vscode.Uri.parse(SHELL_INTEGRATION_HELP));
+        return;
     }
   }
 
@@ -143,6 +167,12 @@ export class Panel {
       hasToken: (await this.context.secrets.get(TOKEN_KEY)) !== undefined,
       status: destination.kind,
       history: this.context.history.entries(),
+      prefs: currentPrefs(),
+      previews: samplePreviews(vscode.l10n.t, vscode.workspace.name),
+      terminals: {
+        open: vscode.window.terminals.length,
+        reporting: vscode.window.terminals.filter((t) => t.shellIntegration !== undefined).length,
+      },
     };
     if (id === this.updating) this.post({ type: 'state', state });
   }

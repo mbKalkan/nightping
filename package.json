@@ -81,13 +81,76 @@
           "type": "string",
           "default": "",
           "scope": "application",
+          "order": 1,
           "markdownDescription": "%config.server%"
         },
         "nightping.topic": {
           "type": "string",
           "default": "",
           "scope": "application",
+          "order": 2,
           "markdownDescription": "%config.topic%"
+        },
+        "nightping.notifyOn.tasks": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "order": 3,
+          "markdownDescription": "%config.notifyOn.tasks%"
+        },
+        "nightping.notifyOn.terminalCommands": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "order": 4,
+          "markdownDescription": "%config.notifyOn.terminalCommands%"
+        },
+        "nightping.notifyOn.notebookCells": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "order": 5,
+          "markdownDescription": "%config.notifyOn.notebookCells%"
+        },
+        "nightping.notifyOn.debugSessions": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "order": 6,
+          "markdownDescription": "%config.notifyOn.debugSessions%"
+        },
+        "nightping.minimumDuration": {
+          "type": "number",
+          "default": 30,
+          "minimum": 0,
+          "maximum": 86400,
+          "scope": "application",
+          "order": 7,
+          "markdownDescription": "%config.minimumDuration%"
+        },
+        "nightping.onlyWhenAway": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "order": 8,
+          "markdownDescription": "%config.onlyWhenAway%"
+        },
+        "nightping.content": {
+          "type": "string",
+          "enum": [
+            "result",
+            "folder",
+            "details"
+          ],
+          "default": "result",
+          "scope": "application",
+          "order": 9,
+          "markdownDescription": "%config.content%",
+          "markdownEnumDescriptions": [
+            "%config.content.result%",
+            "%config.content.folder%",
+            "%config.content.details%"
+          ]
         }
       }
     }

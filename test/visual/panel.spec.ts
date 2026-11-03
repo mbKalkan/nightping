@@ -57,8 +57,92 @@ for (const theme of ['dark', 'light', 'hcDark', 'hcLight'] as ThemeName[]) {
       await page.screenshot({ path: `${SCREENS}/ready-${theme}.png` });
       expect(panel.problems).toEqual([]);
     });
+
+    test('shows when to notify, with a preview of the notification', async ({ page }) => {
+      const panel = await openPanel(page, theme);
+      await panel.init({ ...ready, terminals: { open: 1, reporting: 0 } });
+
+      for (const kind of ['task', 'terminal', 'notebook', 'debug'] as const) {
+        await expect(page.getByLabel(strings.sources[kind])).toBeChecked();
+      }
+      await expect(minimum(page)).toHaveValue('30');
+      await expect(page.getByLabel(strings.onlyWhenAway)).toBeChecked();
+      await expect(page.getByLabel(strings.contentLevels.result)).toBeChecked();
+      await expect(preview(page)).toHaveText(['❌Task', 'Failed (exit 1) · 4m 12s']);
+      await expect(page.getByText(strings.terminalNone)).toBeVisible();
+      expect(await lowestTextContrast(page)).toBeGreaterThanOrEqual(theme === 'hcDark' ? 7 : 4.5);
+      await notifyCard(page).screenshot({ path: `${SCREENS}/notify-${theme}.png` });
+      expect(panel.problems).toEqual([]);
+    });
   });
 }
+
+const notifyCard = (page: Page) => page.getByRole('region', { name: strings.whenToNotify });
+const minimum = (page: Page) => page.getByLabel(strings.minimum);
+const preview = (page: Page) => page.locator('.ng-preview p');
+
+test('writes each choice at once', async ({ page }) => {
+  const panel = await openPanel(page, 'dark');
+  await panel.init(ready);
+  await page.getByLabel(strings.sources.terminal).click();
+  await minimum(page).selectOption('120');
+  await page.getByLabel(strings.onlyWhenAway).click();
+  await page.getByLabel(strings.contentLevels.details).click();
+  expect(await panel.sent()).toEqual([
+    { type: 'setPref', change: { key: 'source', source: 'terminal', on: false } },
+    { type: 'setPref', change: { key: 'minimumSeconds', seconds: 120 } },
+    { type: 'setPref', change: { key: 'onlyWhenAway', on: false } },
+    { type: 'setPref', change: { key: 'content', content: 'details' } },
+  ]);
+  // The preview follows the choice before the settings answer.
+  await expect(preview(page)).toHaveText(['❌build · my-project', 'Failed (exit 1) · 4m 12s']);
+});
+
+test('follows the settings when they change elsewhere', async ({ page }) => {
+  const panel = await openPanel(page, 'dark');
+  await panel.init(ready);
+  await panel.post({
+    type: 'state',
+    state: {
+      ...ready,
+      prefs: {
+        sources: { task: false, terminal: true, notebook: true, debug: false },
+        minimumSeconds: 45,
+        onlyWhenAway: false,
+        content: 'folder',
+      },
+    },
+  });
+  await expect(page.getByLabel(strings.sources.task)).not.toBeChecked();
+  await expect(page.getByLabel(strings.sources.debug)).not.toBeChecked();
+  // A minimum the list does not offer is added to it, in order.
+  await expect(minimum(page)).toHaveValue('45');
+  await expect(minimum(page).locator('option')).toHaveText([
+    'None',
+    '10 seconds',
+    '30 seconds',
+    '45 seconds',
+    '1 minute',
+    '2 minutes',
+    '5 minutes',
+    '10 minutes',
+    '30 minutes',
+  ]);
+  await expect(page.getByLabel(strings.onlyWhenAway)).not.toBeChecked();
+  await expect(page.getByLabel(strings.contentLevels.folder)).toBeChecked();
+  await expect(preview(page).first()).toHaveText('❌Task · my-project');
+});
+
+test('says why terminal commands cannot notify, and links the fix', async ({ page }) => {
+  const panel = await openPanel(page, 'dark');
+  await panel.init(ready);
+  // One of two terminals reports commands: nothing to warn about.
+  await expect(page.getByText(strings.terminalNone)).toBeHidden();
+  await panel.post({ type: 'state', state: { ...ready, terminals: { open: 2, reporting: 0 } } });
+  await expect(page.getByText(strings.terminalNone)).toBeVisible();
+  await page.getByRole('button', { name: strings.learnMore }).click();
+  expect(await panel.sent()).toEqual([{ type: 'openShellIntegrationHelp' }]);
+});
 
 test('checks the server once the field is left, not while typing', async ({ page }) => {
   const panel = await openPanel(page, 'dark');

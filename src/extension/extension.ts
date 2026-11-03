@@ -2,7 +2,10 @@ import * as vscode from 'vscode';
 import { clearToken, sendTest, setToken, setUp, type Services } from './commands';
 import { History } from './history';
 import { Panel } from './panel';
-import { currentDestination, Sender } from './sender';
+import { decide } from './filter';
+import { formatEvent } from './format';
+import { currentDestination, currentPrefs, Sender } from './sender';
+import { watchSources } from './sources';
 import { StatusBar } from './statusBar';
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -18,6 +21,11 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     status,
+    watchSources((event) => {
+      const prefs = currentPrefs();
+      if (decide(event, prefs, vscode.window.state) !== 'send') return;
+      void sender.send(formatEvent(vscode.l10n.t, event, prefs.content, vscode.workspace.name));
+    }),
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration('nightping')) {
         refresh();

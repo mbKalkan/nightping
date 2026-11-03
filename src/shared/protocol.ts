@@ -25,6 +25,29 @@ export interface PanelStrings {
   saved: string;
   /** `{0}` is the time. */
   sentAt: string;
+  whenToNotify: string;
+  events: string;
+  sources: Record<SourceKind, string>;
+  terminalHelp: string;
+  terminalNone: string;
+  learnMore: string;
+  conditions: string;
+  minimum: string;
+  minimumHelp: string;
+  noMinimum: string;
+  /** `{0}` is a number. */
+  seconds: string;
+  oneMinute: string;
+  /** `{0}` is a number. */
+  minutes: string;
+  onlyWhenAway: string;
+  onlyWhenAwayHelp: string;
+  content: string;
+  contentLevels: Record<ContentLevel, string>;
+  contentHelp: string;
+  preview: string;
+  previewHelp: string;
+  appliesNow: string;
   recent: string;
   recentEmpty: string;
   recentNote: string;
@@ -36,6 +59,39 @@ export interface PanelStrings {
 }
 
 export type PanelStatus = 'ready' | 'incomplete' | 'invalid';
+
+/** What can finish in VS Code and send a notification. */
+export type SourceKind = 'task' | 'terminal' | 'notebook' | 'debug';
+
+export const SOURCE_KINDS: readonly SourceKind[] = ['task', 'terminal', 'notebook', 'debug'];
+
+/** How much a notification says: each level adds to the one before. */
+export type ContentLevel = 'result' | 'folder' | 'details';
+
+export const CONTENT_LEVELS: readonly ContentLevel[] = ['result', 'folder', 'details'];
+
+/** When Nightping notifies and what it says, as the settings hold it. */
+export interface NotifyPrefs {
+  sources: Record<SourceKind, boolean>;
+  /** Successful runs shorter than this stay quiet; failures notify at any length. */
+  minimumSeconds: number;
+  /** Quiet while the user is using this VS Code window. */
+  onlyWhenAway: boolean;
+  content: ContentLevel;
+}
+
+export type PrefChange =
+  | { key: 'source'; source: SourceKind; on: boolean }
+  | { key: 'minimumSeconds'; seconds: number }
+  | { key: 'onlyWhenAway'; on: boolean }
+  | { key: 'content'; content: ContentLevel };
+
+/** A notification as the phone shows it: the emoji ntfy puts before the title. */
+export interface NotificationPreview {
+  emoji: string;
+  title: string;
+  message: string;
+}
 
 /** One notification Nightping tried to send. */
 export interface SentEntry {
@@ -56,6 +112,11 @@ export interface PanelState {
   status: PanelStatus;
   /** Newest first. */
   history: SentEntry[];
+  prefs: NotifyPrefs;
+  /** The same sample event at each content level. */
+  previews: Record<ContentLevel, NotificationPreview>;
+  /** Open terminals, and how many of them report their commands (shell integration). */
+  terminals: { open: number; reporting: number };
 }
 
 export type HostToWebviewMessage =
@@ -72,4 +133,6 @@ export type WebviewToHostMessage =
   | { type: 'sendTest' }
   | { type: 'removeToken' }
   | { type: 'clearHistory' }
-  | { type: 'openSettings' };
+  | { type: 'openSettings' }
+  | { type: 'setPref'; change: PrefChange }
+  | { type: 'openShellIntegrationHelp' };

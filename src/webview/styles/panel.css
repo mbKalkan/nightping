@@ -9,11 +9,14 @@ body {
   --ng-error: var(--vscode-editorError-foreground, #e51400);
   --ng-warning: var(--vscode-editorWarning-foreground, #bf8803);
   --ng-quiet: var(--vscode-descriptionForeground);
+  /* VS Code's checkbox border is nearly invisible on a card; this one keeps 3:1 against it. */
+  --ng-control-border: color-mix(in srgb, var(--vscode-foreground) 60%, transparent);
 }
 
 body.vscode-high-contrast {
   --ng-surface: var(--vscode-editor-background);
   --ng-card-border: var(--vscode-contrastBorder, currentColor);
+  --ng-control-border: var(--vscode-checkbox-border, var(--vscode-contrastBorder, currentColor));
 }
 
 html,
@@ -265,6 +268,148 @@ body.vscode-high-contrast .ng-button:hover:not(:disabled, .ng-link) {
   border-left: 3px solid var(--ng-error);
 }
 
+/* "When to notify": checkboxes, radios and a list in the theme's own colors, as VS Code's
+   settings editor draws them. */
+.ng-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* A checkbox row is shorter than an input: start it on the label's line. */
+.ng-stack > .ng-check:first-child {
+  margin-top: 5px;
+}
+
+.ng-stack > .ng-help {
+  margin-top: 0;
+}
+
+/* The box, then its label; help and warnings line up under the label. */
+.ng-check {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  column-gap: 8px;
+  align-items: start;
+}
+
+.ng-check > label {
+  cursor: pointer;
+}
+
+.ng-check > p {
+  grid-column: 2;
+}
+
+.ng-checkbox,
+.ng-radio {
+  appearance: none;
+  display: grid;
+  place-content: center;
+  box-sizing: border-box;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  border: 1px solid var(--ng-control-border);
+  border-radius: 3px;
+  background: var(--vscode-checkbox-background, var(--vscode-input-background));
+  cursor: pointer;
+}
+
+.ng-radio {
+  border-radius: 50%;
+}
+
+.ng-checkbox:checked::after {
+  content: '';
+  width: 4px;
+  height: 9px;
+  margin-top: -2px;
+  border: solid var(--vscode-checkbox-foreground, var(--vscode-foreground));
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.ng-radio:checked::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--vscode-checkbox-foreground, var(--vscode-foreground));
+}
+
+.ng-checkbox:focus-visible,
+.ng-radio:focus-visible,
+.ng-select:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 1px;
+}
+
+.ng-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+
+.ng-select {
+  box-sizing: border-box;
+  min-width: 140px;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--vscode-dropdown-border, var(--vscode-contrastBorder, transparent));
+  border-radius: 2px;
+  background: var(--vscode-dropdown-background);
+  color: var(--vscode-dropdown-foreground);
+  font: inherit;
+  cursor: pointer;
+}
+
+/* A warning is written out; the bar beside it marks it, as errors do. */
+.ng-warning {
+  margin: 4px 0 0;
+  padding-left: 8px;
+  border-left: 3px solid var(--ng-warning);
+}
+
+.ng-warning .ng-link {
+  padding: 0;
+}
+
+/* The notification as a phone would show it: emoji and title, then the message. */
+.ng-preview {
+  box-sizing: border-box;
+  max-width: 380px;
+  padding: 10px 14px;
+  border: 1px solid var(--ng-card-border);
+  border-radius: 12px;
+  background: var(--vscode-editor-background);
+}
+
+.ng-preview-title {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.ng-preview-emoji:not(:empty) {
+  margin-right: 6px;
+}
+
+.ng-preview-message {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.ng-notify > .ng-field:last-of-type {
+  margin-bottom: 0;
+}
+
+/* Under the controls, like the form's buttons. */
+.ng-card .ng-notify > .ng-note {
+  margin: 16px 0 0 136px;
+}
+
 /* One grid for the whole list, so time, text and outcome line up from row to row. */
 .ng-history {
   display: grid;
@@ -377,7 +522,8 @@ body.vscode-high-contrast .ng-button:hover:not(:disabled, .ng-link) {
     padding-top: 0;
   }
 
-  .ng-actions {
+  .ng-actions,
+  .ng-card .ng-notify > .ng-note {
     margin-left: 0;
   }
 
