@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  isToken,
   isTopic,
   normalizeServer,
   readDestination,
@@ -55,6 +56,15 @@ describe('normalizeServer', () => {
     expect(normalizeServer('  https://ntfy.example.com/ntfy//  ')).toBe(
       'https://ntfy.example.com/ntfy',
     );
+  });
+});
+
+describe('isToken', () => {
+  it('takes what an HTTP header can carry', () => {
+    expect(isToken('tk_AgQdq7mVBoFD37zQVN29RhuMzNIz2')).toBe(true);
+    for (const token of ['', 'tk abc', 'tk\tabc', 'tökén', 'tk\nabc']) {
+      expect(isToken(token), JSON.stringify(token)).toBe(false);
+    }
   });
 });
 

@@ -16,7 +16,11 @@ export default defineConfig(
     },
   },
   {
-    files: ['src/**/*.ts', 'scripts/**/*.mjs', 'test/**/*.ts'],
+    files: ['src/extension/**/*.ts', 'scripts/**/*.mjs', 'test/**/*.ts'],
     languageOptions: { globals: globals.node },
+  },
+  {
+    files: ['src/webview/**/*.ts', 'src/shared/**/*.ts'],
+    languageOptions: { globals: globals.browser },
   },
 );

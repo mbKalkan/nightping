@@ -1,17 +1,13 @@
+// The command palette way to do what the panel does.
 import * as vscode from 'vscode';
-import {
-  isServerUrl,
-  isTopic,
-  normalizeServer,
-  readDestination,
-  suggestTopic,
-  type Destination,
-  type DestinationState,
-} from './config';
-import { publish, type PublishResult } from './ntfy';
+import { isServerUrl, isToken, isTopic, normalizeServer, suggestTopic } from './config';
+import { saveDestination, TOKEN_KEY, type Sender, type SendOutcome } from './sender';
+import { testMessage } from './texts';
 
-/** SecretStorage key; secrets are already kept apart per extension. */
-const TOKEN = 'accessToken';
+export interface Services {
+  secrets: vscode.SecretStorage;
+  sender: Sender;
+}
 
 interface Action {
   title: string;
@@ -32,18 +28,9 @@ const sendTestAction = (): Action => ({
   command: 'nightping.sendTest',
 });
 
-function settings(): vscode.WorkspaceConfiguration {
-  return vscode.workspace.getConfiguration('nightping');
-}
-
-export function currentDestination(): DestinationState {
-  const values = settings();
-  return readDestination((key) => values.get(key));
-}
-
 /** Asks for the server, topic and token, saves them, then sends a test notification. */
-export async function setUp(secrets: vscode.SecretStorage): Promise<void> {
-  const values = settings();
+export async function setUp(services: Services): Promise<void> {
+  const values = vscode.workspace.getConfiguration('nightping');
   const title = (step: number) => vscode.l10n.t('Set Up Nightping ({0}/3)', step);
 
   const server = await vscode.window.showInputBox({
@@ -71,7 +58,7 @@ export async function setUp(secrets: vscode.SecretStorage): Promise<void> {
     return;
   }
 
-  const saved = (await secrets.get(TOKEN)) !== undefined;
+  const saved = (await services.secrets.get(TOKEN_KEY)) !== undefined;
   const token = await vscode.window.showInputBox({
     title: title(3),
     prompt: saved
@@ -87,47 +74,22 @@ export async function setUp(secrets: vscode.SecretStorage): Promise<void> {
     return;
   }
 
-  await values.update('server', normalizeServer(server), vscode.ConfigurationTarget.Global);
-  await values.update('topic', topic.trim(), vscode.ConfigurationTarget.Global);
-  if (token.trim() !== '') {
-    await secrets.store(TOKEN, token.trim());
-  }
-  await sendTest(secrets);
+  await saveDestination(services.secrets, server, topic, token);
+  await sendTest(services);
 }
 
-export async function sendTest(secrets: vscode.SecretStorage): Promise<void> {
-  const state = currentDestination();
-  if (state.kind !== 'ready') {
-    offer(
-      'warning',
-      state.kind === 'incomplete'
-        ? vscode.l10n.t('Nightping is not set up yet.')
-        : vscode.l10n.t('The ntfy server or topic in the settings is not valid.'),
-      setUpAction(),
-    );
-    return;
-  }
-  const token = await secrets.get(TOKEN);
-  const result = await vscode.window.withProgress(
+export async function sendTest(services: Services): Promise<void> {
+  const outcome = await vscode.window.withProgress(
     {
       location: vscode.ProgressLocation.Notification,
       title: vscode.l10n.t('Sending a test notification…'),
     },
-    () =>
-      publish(
-        state.destination,
-        {
-          title: vscode.l10n.t('Nightping test'),
-          message: vscode.l10n.t('Notifications from VS Code will arrive like this.'),
-          tags: ['bell'],
-        },
-        { token },
-      ),
+    () => services.sender.send(testMessage(vscode.l10n.t)),
   );
-  report(result, state.destination, token !== undefined);
+  report(outcome);
 }
 
-export async function setToken(secrets: vscode.SecretStorage): Promise<void> {
+export async function setToken(services: Services): Promise<void> {
   const token = await vscode.window.showInputBox({
     title: vscode.l10n.t('Nightping Access Token'),
     prompt: vscode.l10n.t(
@@ -140,13 +102,13 @@ export async function setToken(secrets: vscode.SecretStorage): Promise<void> {
   if (token === undefined) {
     return;
   }
-  await secrets.store(TOKEN, token.trim());
+  await services.secrets.store(TOKEN_KEY, token.trim());
   offer('info', vscode.l10n.t('Access token saved.'), sendTestAction());
 }
 
-export async function clearToken(secrets: vscode.SecretStorage): Promise<void> {
-  const saved = (await secrets.get(TOKEN)) !== undefined;
-  await secrets.delete(TOKEN);
+export async function clearToken(services: Services): Promise<void> {
+  const saved = (await services.secrets.get(TOKEN_KEY)) !== undefined;
+  await services.secrets.delete(TOKEN_KEY);
   void vscode.window.showInformationMessage(
     saved ? vscode.l10n.t('Access token removed.') : vscode.l10n.t('No access token was saved.'),
   );
@@ -175,74 +137,42 @@ function tokenProblem(value: string): string | undefined {
   if (token === '') {
     return vscode.l10n.t('Enter the token, or use “Nightping: Clear Access Token” to remove it.');
   }
-  // Anything else cannot go into an HTTP header.
-  return /^[\x21-\x7e]+$/.test(token)
+  return isToken(token)
     ? undefined
     : vscode.l10n.t('An access token has no spaces or special characters.');
 }
 
-function report(result: PublishResult, destination: Destination, hasToken: boolean): void {
-  const { server } = destination;
-  if (result.ok) {
-    // Short on purpose: a collapsed toast shows one line, and the topic is in the status bar tooltip.
-    void vscode.window.showInformationMessage(
-      vscode.l10n.t('Test notification sent. Check your phone.'),
-    );
-    return;
-  }
-  switch (result.reason) {
-    case 'unauthorized':
-      if (hasToken) {
-        offer(
-          'error',
-          vscode.l10n.t('{0} refused the access token (HTTP {1}).', server, result.status),
-          setTokenAction(),
-          clearTokenAction(),
-        );
-      } else {
-        offer(
-          'error',
-          vscode.l10n.t(
-            '{0} needs an access token for this topic (HTTP {1}).',
-            server,
-            result.status,
-          ),
-          setTokenAction(),
-        );
-      }
-      return;
-    case 'redirect':
+function report(outcome: SendOutcome): void {
+  switch (outcome.kind) {
+    case 'not-ready':
       offer(
-        'error',
-        vscode.l10n.t(
-          '{0} redirects to {1}. Use that address as the server.',
-          server,
-          result.location,
-        ),
+        'warning',
+        outcome.state.kind === 'incomplete'
+          ? vscode.l10n.t('Nightping is not set up yet.')
+          : vscode.l10n.t('The ntfy server or topic in the settings is not valid.'),
         setUpAction(),
       );
       return;
-    case 'http':
-      offer(
-        'error',
-        result.detail
-          ? vscode.l10n.t('{0} answered HTTP {1}: {2}', server, result.status, result.detail)
-          : vscode.l10n.t('{0} answered HTTP {1}.', server, result.status),
+    case 'sent':
+      // Short on purpose: a collapsed toast shows one line, and the topic is in the status bar
+      // tooltip.
+      void vscode.window.showInformationMessage(
+        vscode.l10n.t('Test notification sent. Check your phone.'),
       );
       return;
-    case 'unreachable':
-      offer(
-        'error',
-        vscode.l10n.t('Could not reach {0} ({1}).', server, result.detail),
-        setUpAction(),
-      );
+    case 'failed': {
+      const { result, hasToken, text } = outcome;
+      const actions =
+        result.reason === 'unauthorized'
+          ? hasToken
+            ? [setTokenAction(), clearTokenAction()]
+            : [setTokenAction()]
+          : result.reason === 'redirect' || result.reason === 'unreachable'
+            ? [setUpAction()]
+            : [];
+      offer('error', text, ...actions);
       return;
-    case 'timeout':
-      offer(
-        'error',
-        vscode.l10n.t('{0} did not answer within {1} seconds.', server, result.seconds),
-      );
-      return;
+    }
   }
 }
 
