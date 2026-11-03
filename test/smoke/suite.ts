@@ -115,6 +115,9 @@ const tests: Record<string, () => Promise<void>> = {
       const exitCode = await runTask('nightping-smoke-fail', 'exit 3');
       assert.ok(exitCode !== undefined && exitCode !== 0, `exit code ${exitCode}`);
       const request = await waitFor(() => ntfy.requests[0]);
+      // The task's own shell reports the command too; only the task may notify.
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      assert.equal(ntfy.requests.length, 1);
       const body = JSON.parse(request.body) as Record<string, unknown>;
       assert.equal(body.title, `nightping-smoke-fail · ${vscode.workspace.name}`);
       // Windows PowerShell reports any failure as 1.
