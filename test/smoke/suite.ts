@@ -211,6 +211,74 @@ const tests: Record<string, () => Promise<void>> = {
     }
   },
 
+  async 'notifies when a notebook cell finishes, with the file and cell at the details level'() {
+    // No Jupyter here: a kernel of the test's own runs the cells through the same API.
+    const folder = vscode.workspace.workspaceFolders?.[0];
+    assert.ok(folder, 'scripts/smoke.mjs opens a folder');
+    const file = join(folder.uri.fsPath, 'smoke.ipynb');
+    writeFileSync(file, notebook(['print("done")', 'fail()']));
+    const controller = vscode.notebooks.createNotebookController(
+      'nightping-smoke-kernel',
+      'jupyter-notebook',
+      'Nightping smoke kernel',
+    );
+    controller.supportedLanguages = ['python'];
+    controller.executeHandler = (cells) => {
+      for (const cell of cells) {
+        const execution = controller.createNotebookCellExecution(cell);
+        const end = Date.now();
+        // 42 seconds: past the 30-second minimum, so the cell that succeeds notifies too.
+        execution.start(end - 42_000);
+        execution.end(!cell.document.getText().includes('fail'), end);
+      }
+    };
+    const ntfy = await fakeNtfy();
+    const reset = await useSettings({
+      server: ntfy.server,
+      topic: 'smoke-test',
+      onlyWhenAway: false,
+      content: 'details',
+    });
+    try {
+      const document = await vscode.workspace.openNotebookDocument(vscode.Uri.file(file));
+      await vscode.window.showNotebookDocument(document);
+      controller.updateNotebookAffinity(document, vscode.NotebookControllerAffinity.Preferred);
+      await vscode.commands.executeCommand('notebook.selectKernel', {
+        id: 'nightping-smoke-kernel',
+        extension: EXTENSION_ID,
+      });
+      await vscode.commands.executeCommand('notebook.execute', document.uri);
+      await waitFor(() => ntfy.requests[1]);
+      // Later changes to the cells (outputs, metadata) must not notify again.
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      assert.equal(ntfy.requests.length, 2);
+      // Both go out at once, so they may arrive in either order.
+      const bodies = ntfy.requests
+        .map((r) => JSON.parse(r.body) as Record<string, unknown>)
+        .sort((a, b) => String(a.title).localeCompare(String(b.title)));
+      const where = vscode.workspace.name;
+      assert.deepEqual(bodies[0], {
+        topic: 'smoke-test',
+        title: `smoke.ipynb · cell 1 · ${where}`,
+        message: 'Succeeded · 42s',
+        tags: ['white_check_mark'],
+      });
+      assert.deepEqual(bodies[1], {
+        topic: 'smoke-test',
+        title: `smoke.ipynb · cell 2 · ${where}`,
+        message: 'Failed · 42s',
+        tags: ['x'],
+        priority: 4,
+      });
+    } finally {
+      await vscode.commands.executeCommand('workbench.action.revertAndCloseActiveEditor');
+      controller.dispose();
+      await reset();
+      await ntfy.close();
+      rmSync(file, { force: true });
+    }
+  },
+
   async 'sends nothing while paused but a test, and notifies again once resumed'() {
     const ntfy = await fakeNtfy();
     const reset = await useSettings({
@@ -391,6 +459,22 @@ async function useSettings(values: Record<string, unknown>): Promise<() => Promi
   return async () => {
     for (const key of Object.keys(values)) await settings.update(key, undefined, global);
   };
+}
+
+/** A Jupyter notebook with one Python code cell per source. */
+function notebook(sources: string[]): string {
+  return JSON.stringify({
+    cells: sources.map((source) => ({
+      cell_type: 'code',
+      source: [source],
+      metadata: {},
+      outputs: [],
+      execution_count: null,
+    })),
+    metadata: { language_info: { name: 'python' } },
+    nbformat: 4,
+    nbformat_minor: 5,
+  });
 }
 
 /** Runs a shell task in the open folder and returns its exit code. */
