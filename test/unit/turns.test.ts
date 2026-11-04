@@ -29,7 +29,7 @@ describe('Turns', () => {
       turns.event('claude', {
         kind: 'needs',
         session: 'a',
-        cwd: 'C:\\work\\app',
+        cwd: '/work/app',
         need: 'approval',
         message: 'Run the tests',
       }),
