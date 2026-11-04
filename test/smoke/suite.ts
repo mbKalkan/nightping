@@ -5,6 +5,7 @@ import { homedir, tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import * as http from 'node:http';
 import type { AddressInfo } from 'node:net';
+import type { Duplex } from 'node:stream';
 import * as vscode from 'vscode';
 import { spawn } from 'node:child_process';
 import { CLAUDE_HOOKS } from '../../src/extension/claude/settings';
@@ -357,6 +358,25 @@ const tests: Record<string, () => Promise<void>> = {
     }
   },
 
+  async 'sends through the proxy set in VS Code'() {
+    // The server's name does not resolve, so the message gets there only through the proxy:
+    // VS Code's fetch asks it for a tunnel, here answered by the stand-in itself.
+    const proxy = await fakeNtfy();
+    const http = vscode.workspace.getConfiguration('http');
+    await http.update('proxy', proxy.server, vscode.ConfigurationTarget.Global);
+    const reset = await useSettings({ server: 'http://ntfy.test', topic: 'smoke-test' });
+    try {
+      const sent = await vscode.commands.executeCommand('nightping.send', 'Through the proxy');
+      assert.deepEqual(sent, { sent: true }, JSON.stringify(sent));
+      assert.deepEqual(proxy.tunnels, ['ntfy.test:80']);
+      assert.equal(proxy.requests[0].headers.host, 'ntfy.test');
+    } finally {
+      await http.update('proxy', undefined, vscode.ConfigurationTarget.Global);
+      await reset();
+      await proxy.close();
+    }
+  },
+
   async 'takes Claude Code hooks added by hand, and notifies about its turns'() {
     // scripts/smoke.mjs points CLAUDE_CONFIG_DIR at an empty folder and sets the port.
     const dir = process.env.CLAUDE_CONFIG_DIR;
@@ -650,8 +670,12 @@ async function runTask(name: string, command: string): Promise<number | undefine
   return ended;
 }
 
-/** A local stand-in for ntfy that records each request and answers like ntfy does. */
+/**
+ * A local stand-in for ntfy that records each request and answers like ntfy does. Set as the
+ * proxy, it also opens each tunnel asked for (CONNECT) and answers what comes through it.
+ */
 async function fakeNtfy() {
+  const tunnels: string[] = [];
   const requests: {
     url?: string;
     headers: http.IncomingHttpHeaders;
@@ -668,11 +692,18 @@ async function fakeNtfy() {
       response.end('{"id":"smoke","event":"message"}');
     });
   });
+  server.on('connect', (request: http.IncomingMessage, socket: Duplex, head: Buffer) => {
+    tunnels.push(request.url ?? '');
+    socket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
+    if (head.length > 0) socket.unshift(head);
+    server.emit('connection', socket);
+  });
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address() as AddressInfo;
   return {
     server: `http://127.0.0.1:${port}`,
     requests,
+    tunnels,
     close: () =>
       new Promise<void>((resolve) => {
         server.closeAllConnections();
