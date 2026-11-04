@@ -28,9 +28,9 @@ Nightping ships with **no server, no topic and no account**, and sends nothing u
 ### With ntfy.sh (free, nothing to install)
 
 1. Install the ntfy app on your phone: [Google Play](https://play.google.com/store/apps/details?id=io.heckel.ntfy), [F-Droid](https://f-droid.org/en/packages/io.heckel.ntfy/) or the [App Store](https://apps.apple.com/us/app/ntfy/id1625396347).
-2. In VS Code, click **Nightping** in the status bar to open the panel. Enter `https://ntfy.sh` as the server, keep the random topic Nightping suggests, leave the access token empty, and click **Save**.
-3. In the ntfy app, add a subscription to the same topic.
-4. Click **Send Test Notification**. It arrives on your phone within seconds.
+2. In VS Code, click **Nightping** in the status bar to open the panel. Under **Your phone**, click **Use ntfy.sh** and keep the random topic Nightping suggests.
+3. In the ntfy app, tap **+** and enter the same topic (**Copy** puts it on the clipboard).
+4. Click **Save and Send Test**. The test arrives on your phone within seconds, and the card then says in one line where notifications go.
 
 On ntfy.sh every topic is public: anyone who knows its name can read it and send to it, so the topic works like a password. Keep the random name, or choose one as hard to guess. Free use of ntfy.sh has [limits](https://docs.ntfy.sh/publish/#limitations), such as 250 messages a day.
 
@@ -46,15 +46,15 @@ On ntfy.sh every topic is public: anyone who knows its name can read it and send
    ```
 
    The token starts with `tk_`. It can do whatever its user can, which is why that user gets this one topic and nothing more.
-3. In the Nightping panel, enter your server (for example `https://ntfy.example.com`), the topic and the token, and click **Save**.
+3. In the Nightping panel, under **Your phone**, enter your server (for example `https://ntfy.example.com`) and the topic, click **My server needs an access token** and enter the token.
 4. In the ntfy app, add a subscription to the topic with **Use another server** and your server's address, or make it the **Default server** in the app's settings. For a protected topic, the app asks you to log in with a user that may read it.
-5. Click **Send Test Notification**.
+5. Click **Save and Send Test**.
 
 On an iPhone, notifications from your own server arrive at once only when the server forwards them through ntfy.sh: set `upstream-base-url: "https://ntfy.sh"` in `server.yml` ([iOS instant notifications](https://docs.ntfy.sh/config/#ios-instant-notifications)). ntfy.sh then sees only a message ID and a hash of the topic, never the message itself.
 
 ### If it does not arrive
 
-The panel says why under the buttons: the server needs an access token or refused it, redirects to another address, cannot be reached, or does not answer within 10 seconds. **Recent notifications** keeps what Nightping sent, and the reason for anything that did not go out. The list stays on this computer.
+The **Your phone** card says why: the server needs an access token or refused it, redirects to another address, cannot be reached, or does not answer within 10 seconds. **Recent notifications** keeps what Nightping sent, and the reason for anything that did not go out. The list stays on this computer.
 
 ### Your server, your settings
 
@@ -65,9 +65,9 @@ The panel says why under the buttons: the server needs an access token or refuse
 
 ## Claude Code
 
-**Connect it with one click.** In the Nightping panel, click **Connect Claude Code** (or run **Nightping: Connect Claude Code…**). After you confirm, Nightping adds three HTTP hooks to Claude Code's user settings, `~/.claude/settings.json` (or the folder an absolute `CLAUDE_CONFIG_DIR` names): when you send a prompt, when Claude finishes, and when it needs you. It saves a copy of the file as `settings.json.nightping.bak` first and leaves your other settings and hooks as they are. **Disconnect** removes only Nightping's hooks. Claude Code picks the change up without a restart. When you set up Nightping with **Nightping: Set Up…** and Claude Code is on the computer, the test notification offers to connect it.
+**Connect it with one click.** In the Nightping panel, under **AI agents**, click **Connect** next to Claude Code (or run **Nightping: Connect Claude Code…**). After you confirm, Nightping adds three HTTP hooks to Claude Code's user settings, `~/.claude/settings.json` (or the folder an absolute `CLAUDE_CONFIG_DIR` names): when you send a prompt, when Claude finishes, and when it needs you. It saves a copy of the file as `settings.json.nightping.bak` first and leaves your other settings and hooks as they are. **Disconnect** removes only Nightping's hooks. Claude Code picks the change up without a restart. When you set up Nightping with **Nightping: Set Up…** and Claude Code is on the computer, the test notification offers to connect it.
 
-**Or add the hooks yourself.** **Copy Settings** (or **Nightping: Copy Claude Code Hook Settings**) puts them on the clipboard; add them under `"hooks"` in the settings file, or paste them to Claude Code and ask it to add them to your user settings:
+**Or add the hooks yourself.** **Copy Settings** under **How it works** (or **Nightping: Copy Claude Code Hook Settings**) puts them on the clipboard; add them under `"hooks"` in the settings file, or paste them to Claude Code and ask it to add them to your user settings:
 
 ```json
 {
@@ -89,11 +89,11 @@ How it works:
 
 ## Codex
 
-**Connect it with one click.** In the Nightping panel, click **Connect Codex** (or run **Nightping: Connect Codex…**). After you confirm, Nightping adds three hooks to Codex's `~/.codex/hooks.json` (or the `hooks.json` in an absolute `CODEX_HOME`): when you send a prompt, when Codex finishes, and when it asks for your approval. It saves a copy of the file as `hooks.json.nightping.bak` first and leaves your own hooks as they are. **Disconnect** removes only Nightping's hooks.
+**Connect it with one click.** In the Nightping panel, under **AI agents**, click **Connect** next to Codex (or run **Nightping: Connect Codex…**). After you confirm, Nightping adds three hooks to Codex's `~/.codex/hooks.json` (or the `hooks.json` in an absolute `CODEX_HOME`): when you send a prompt, when Codex finishes, and when it asks for your approval. It saves a copy of the file as `hooks.json.nightping.bak` first and leaves your own hooks as they are. **Disconnect** removes only Nightping's hooks.
 
-**Then trust the hooks once.** Codex runs a new hook only after you have reviewed and trusted it. Run `/hooks` in Codex and trust the three Nightping hooks; until then Codex skips them. After a port change, reconnect and trust them again.
+**Then trust the hooks once.** Codex runs a new hook only after you have reviewed and trusted it. Run `/hooks` in Codex and trust the three Nightping hooks; until then Codex skips them, and the panel reminds you under Codex. After a port change, reconnect and trust them again.
 
-**Or add the hooks yourself.** **Copy Settings** (or **Nightping: Copy Codex Hook Settings**) puts them on the clipboard. Each of the three events (`UserPromptSubmit`, `Stop`, `PermissionRequest`) gets the same hook:
+**Or add the hooks yourself.** **Copy Settings** under **How it works** (or **Nightping: Copy Codex Hook Settings**) puts them on the clipboard. Each of the three events (`UserPromptSubmit`, `Stop`, `PermissionRequest`) gets the same hook:
 
 ```json
 {
@@ -114,9 +114,9 @@ How it works:
 
 ## GitHub Copilot
 
-**Connect it with one click.** In the Nightping panel, click **Connect GitHub Copilot** (or run **Nightping: Connect GitHub Copilot…**). After you confirm, Nightping adds a hooks file of its own, `~/.copilot/hooks/nightping.json`. Copilot's agent mode in VS Code and Copilot CLI both read every hooks file in that folder, so one file covers both, and your own hooks files are never touched. **Disconnect** deletes Nightping's file.
+**Connect it with one click.** In the Nightping panel, under **AI agents**, click **Connect** next to GitHub Copilot (or run **Nightping: Connect GitHub Copilot…**). After you confirm, Nightping adds a hooks file of its own, `~/.copilot/hooks/nightping.json`. Copilot's agent mode in VS Code and Copilot CLI both read every hooks file in that folder, so one file covers both, and your own hooks files are never touched. **Disconnect** deletes Nightping's file.
 
-**Or add it yourself.** **Copy Settings** (or **Nightping: Copy GitHub Copilot Hook Settings**) puts the file on the clipboard; save it as `~/.copilot/hooks/nightping.json`. It starts with `"version": 1`, and each of the three events (`UserPromptSubmit`, `Stop`, `notification`) gets the same hook:
+**Or add it yourself.** **Copy Settings** under **How it works** (or **Nightping: Copy GitHub Copilot Hook Settings**) puts the file on the clipboard; save it as `~/.copilot/hooks/nightping.json`. It starts with `"version": 1`, and each of the three events (`UserPromptSubmit`, `Stop`, `notification`) gets the same hook:
 
 ```json
 {
@@ -139,14 +139,14 @@ How it works:
 
 By default Nightping stays quiet while you are using the VS Code window where the run finished (it is focused and you used it in the last few seconds), and about runs that succeed in under 30 seconds. Failures notify at any duration.
 
-All of this is in the **When to notify** card of the Nightping panel, and changes apply right away:
+The **When you get a notification** card of the Nightping panel says these rules in one sentence, next to an example of what your phone shows. Below it, each kind of event and each connected agent has its own checkbox, and **Change the rules** opens the rest. Changes apply right away:
 
 - each kind of event on or off (`nightping.notifyOn.*`),
 - the minimum duration (`nightping.minimumDuration`, in seconds; `0` notifies about every run),
-- **Only when I am away** (`nightping.onlyWhenAway`),
-- the content (`nightping.content`): the result and duration only (default), also the workspace name, or also the task name, command line or file name. A preview shows what your phone will get.
+- **Only when I am not using VS Code** (`nightping.onlyWhenAway`),
+- the content (`nightping.content`): the result and duration only (default), also the workspace name, or also the task name, command line or file name. The example follows your choice.
 
-**Pause** notifications for 30 minutes, an hour, four hours or until you resume: with **Pause…** at the top of the panel, from the status bar item's hover, or with **Nightping: Pause Notifications…**. The pause holds in every VS Code window on this computer, the status bar says **Paused**, and **Resume** ends it. Test notifications still go out. For a key binding, pass the minutes: `{ "key": "…", "command": "nightping.pause", "args": 60 }`.
+**Pause** notifications for 30 minutes, an hour, four hours or until you resume: with **Pause Notifications…** at the top of the panel, from the status bar item's hover, or with **Nightping: Pause Notifications…**. The pause holds in every VS Code window on this computer, the status bar says **Paused**, and **Resume** ends it. Test notifications still go out. For a key binding, pass the minutes: `{ "key": "…", "command": "nightping.pause", "args": 60 }`.
 
 Hovering over the status bar item also shows the last notification, or why it was not sent.
 

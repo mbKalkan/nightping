@@ -61,6 +61,9 @@ describe('failureText', () => {
 
 describe('panelStrings', () => {
   it('leaves the time placeholder for the panel to fill', () => {
-    expect(panelStrings(english).sentAt).toBe('Sent at {0}. Check your phone.');
+    expect(panelStrings(english).sentAt).toBe(
+      'Sent at {0}. If it is not on your phone, subscribe to this topic in the ntfy app.',
+    );
+    expect(panelStrings(english).sendingTo).toBe('Notifications go to the topic {0} on {1}.');
   });
 });

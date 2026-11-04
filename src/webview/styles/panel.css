@@ -38,6 +38,19 @@ body {
   display: none !important;
 }
 
+/* Read by screen readers, not shown: the step around a field already names it. */
+.ng-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 #app {
   position: relative;
   height: 100%;
@@ -101,24 +114,13 @@ body {
   background: var(--ng-error);
 }
 
-/* Claude Code: the hooks' state, then the buttons that change them. */
-.ng-agent-state {
-  padding-top: 3px;
-}
-
-.ng-agent-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-/* On the label's line, warning or not (a warning has its own top margin). */
-.ng-stack > .ng-agent-receiving {
-  margin: 5px 0 0;
-}
-
 .ng-status[data-status='paused']::before {
   background: var(--ng-quiet);
+}
+
+.ng-status[data-status='incomplete']::before {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--ng-quiet);
 }
 
 .ng-header-side {
@@ -126,11 +128,6 @@ body {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-}
-
-.ng-status[data-status='incomplete']::before {
-  background: transparent;
-  box-shadow: inset 0 0 0 1.5px var(--ng-quiet);
 }
 
 .ng-card {
@@ -166,9 +163,17 @@ body {
   margin-bottom: 18px;
 }
 
+.ng-field-stacked {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .ng-label {
   padding-top: 5px;
   font-weight: 600;
+}
+
+.ng-field-stacked > .ng-label {
+  padding-top: 0;
 }
 
 .ng-control {
@@ -280,18 +285,15 @@ body.vscode-high-contrast .ng-button:hover:not(:disabled, .ng-link) {
   outline-offset: -3px;
 }
 
-.ng-actions {
+.ng-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  /* Under the fields, not under the labels. */
-  margin: 22px 0 0 136px;
 }
 
 .ng-result {
-  flex: 1 1 240px;
-  margin: 0 0 0 8px;
+  margin: 0;
 }
 
 .ng-result.ng-failed {
@@ -299,21 +301,209 @@ body.vscode-high-contrast .ng-button:hover:not(:disabled, .ng-link) {
   border-left: 3px solid var(--ng-error);
 }
 
-/* "When to notify": checkboxes, radios and a list in the theme's own colors, as VS Code's
-   settings editor draws them. */
+/* "Your phone": numbered steps until it works, one line after. */
+.ng-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: ng-step;
+}
+
+/* A hidden step is not counted, so the numbers stay in order. */
+.ng-step {
+  position: relative;
+  padding-left: 36px;
+  counter-increment: ng-step;
+}
+
+.ng-step::before {
+  content: counter(ng-step);
+  position: absolute;
+  top: -1px;
+  left: 0;
+  display: grid;
+  place-content: center;
+  box-sizing: border-box;
+  width: 24px;
+  height: 24px;
+  /* A ring in the text's own colors, readable in every theme. */
+  border: 1px solid var(--ng-control-border);
+  border-radius: 50%;
+  background: var(--vscode-editor-background);
+  color: var(--vscode-foreground);
+  font-weight: 600;
+}
+
+.ng-step-title {
+  margin: 0;
+  font-size: 1em;
+  font-weight: 600;
+  line-height: 22px;
+}
+
+.ng-step > .ng-help {
+  margin-top: 2px;
+  max-width: 640px;
+}
+
+.ng-step-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.ng-step-body:empty {
+  display: none;
+}
+
+.ng-step-body > .ng-field {
+  align-self: stretch;
+  max-width: 600px;
+  margin-bottom: 0;
+}
+
+.ng-step-body > .ng-link {
+  padding-inline: 0;
+}
+
+.ng-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.ng-summary-text {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.ng-destination > .ng-result:not(:empty) {
+  margin-top: 12px;
+}
+
+/* A fold that opens in place: a link-coloured line with VS Code's own marker. */
+.ng-details > summary {
+  width: fit-content;
+  padding: 2px 0;
+  color: var(--vscode-textLink-foreground);
+  cursor: pointer;
+}
+
+.ng-details > summary:hover {
+  color: var(--vscode-textLink-activeForeground);
+  text-decoration: underline;
+}
+
+.ng-details > summary:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
+
+.ng-details-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 6px 0 2px 5px;
+  padding-left: 14px;
+  border-left: 2px solid var(--ng-card-border);
+}
+
+.ng-details-body > .ng-help {
+  margin: 0;
+  max-width: 640px;
+}
+
+/* "When you get a notification": the rules beside an example, and under both the fold that
+   changes them. */
+.ng-rules {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 340px);
+  align-items: start;
+  gap: 12px 24px;
+  margin-bottom: 20px;
+}
+
+.ng-rules > .ng-details {
+  grid-column: 1 / -1;
+}
+
+.ng-rule {
+  margin: 0;
+}
+
+.ng-conditions {
+  margin: 4px 0 0;
+  padding-left: 20px;
+}
+
+.ng-conditions > li + li {
+  margin-top: 2px;
+}
+
+.ng-example {
+  margin: 0;
+}
+
+.ng-example > .ng-help {
+  margin: 0 0 6px;
+}
+
+.ng-group + .ng-group {
+  margin-top: 20px;
+}
+
+.ng-group-title {
+  margin: 0 0 8px;
+  font-size: 1em;
+  font-weight: 600;
+}
+
+.ng-group-help {
+  margin: -4px 0 10px;
+}
+
+.ng-row > .ng-help {
+  margin: 0;
+}
+
+.ng-stores {
+  gap: 4px 16px;
+}
+
+.ng-stores > .ng-link {
+  padding-inline: 0;
+}
+
+.ng-option-title {
+  font-weight: 600;
+}
+
+.ng-details-body.ng-stack {
+  gap: 14px;
+}
+
+.ng-option.ng-stack {
+  gap: 6px;
+}
+
+.ng-option .ng-help {
+  margin: 4px 0 0;
+}
+
+/* Checkboxes, radios and a list in the theme's own colors, as VS Code's settings editor
+   draws them. */
 .ng-stack {
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-
-/* A checkbox row is shorter than an input: start it on the label's line. */
-.ng-stack > .ng-check:first-child {
-  margin-top: 5px;
-}
-
-.ng-stack > .ng-help {
-  margin-top: 0;
 }
 
 /* The box, then its label; help and warnings line up under the label. */
@@ -376,6 +566,58 @@ body.vscode-high-contrast .ng-button:hover:not(:disabled, .ng-link) {
   outline-offset: 1px;
 }
 
+/* The agents: one grid for the whole list, so the checkbox, the name, the state and the
+   buttons line up from row to row; notes and the fold go under the name. */
+.ng-agent-list {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto auto;
+  column-gap: 8px;
+  row-gap: 12px;
+}
+
+.ng-agent {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  row-gap: 2px;
+  align-items: center;
+}
+
+.ng-agent > .ng-checkbox {
+  grid-column: 1;
+}
+
+.ng-agent-label {
+  grid-column: 2;
+  cursor: pointer;
+}
+
+.ng-checkbox:disabled + .ng-agent-label {
+  cursor: default;
+}
+
+.ng-agent-side {
+  display: contents;
+}
+
+.ng-agent-side > .ng-status {
+  grid-column: 3;
+  justify-self: start;
+}
+
+.ng-agent-actions {
+  display: flex;
+  grid-column: 4;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+}
+
+.ng-agent > .ng-warning,
+.ng-agent > .ng-details {
+  grid-column: 2 / -1;
+}
+
 .ng-inline {
   display: flex;
   flex-wrap: wrap;
@@ -407,6 +649,10 @@ body.vscode-high-contrast .ng-button:hover:not(:disabled, .ng-link) {
   padding: 0;
 }
 
+.ng-check > .ng-warning {
+  margin: 6px 0 4px;
+}
+
 /* The notification as a phone would show it: emoji and title, then the message. */
 .ng-preview {
   box-sizing: border-box;
@@ -432,24 +678,11 @@ body.vscode-high-contrast .ng-button:hover:not(:disabled, .ng-link) {
   overflow-wrap: anywhere;
 }
 
-.ng-notify > .ng-field:last-of-type {
-  margin-bottom: 0;
-}
-
-/* Under the controls, like the form's buttons. */
-.ng-card .ng-notify > .ng-note {
-  margin: 16px 0 0 136px;
-}
-
 .ng-message > .ng-field {
   margin-bottom: 0;
 }
 
 /* Under the input; it takes no room until there is something to say. */
-.ng-message .ng-result {
-  margin: 0;
-}
-
 .ng-message .ng-result:not(:empty) {
   margin-top: 4px;
 }
@@ -566,13 +799,38 @@ body.vscode-high-contrast .ng-button:hover:not(:disabled, .ng-link) {
     padding-top: 0;
   }
 
-  .ng-actions,
-  .ng-card .ng-notify > .ng-note {
-    margin-left: 0;
-  }
-
+  /* The whole value stays in sight (a topic is typed on the phone); buttons go under it. */
   .ng-control {
     flex-wrap: wrap;
+  }
+
+  .ng-control > .ng-input {
+    flex-basis: 100%;
+  }
+
+  .ng-step {
+    padding-left: 32px;
+  }
+
+  .ng-rules {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* State and buttons go under the name. */
+  .ng-agent-list {
+    grid-template-columns: 18px minmax(0, 1fr);
+  }
+
+  .ng-agent-side {
+    display: flex;
+    flex-wrap: wrap;
+    grid-column: 2;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ng-agent-actions {
+    grid-column: auto;
   }
 
   .ng-history {

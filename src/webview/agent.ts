@@ -1,5 +1,6 @@
-// An agent's card ("Claude Code", "Codex"): whether Nightping's hooks are in the agent's settings,
-// buttons to connect, disconnect or copy them, and which window receives the events.
+// An agent's row in "When you get a notification". Until Nightping's hooks are in the agent's
+// settings the row offers Connect; once they are, a checkbox turns its notifications on and off.
+// Files, ports and Copy Settings wait under "How it works".
 import type { AgentKind, AgentStatus, AgentStrings } from '../shared/protocol';
 import { button, element } from './dom';
 import { vscode } from './vscodeApi';
@@ -12,22 +13,57 @@ const DOT: Record<AgentStatus['hooks'], string> = {
   invalid: 'error',
 };
 
-export class AgentCard {
+export class AgentRow {
   readonly element = element('div', 'ng-agent');
+  readonly input = element('input', 'ng-checkbox');
   private readonly state = element('span', 'ng-status');
-  private readonly help = element('p', 'ng-help');
   private readonly connect: HTMLButtonElement;
   private readonly disconnect: HTMLButtonElement;
-  private readonly receivingField = element('div', 'ng-field');
-  private readonly receiving = element('p', 'ng-agent-receiving');
+  private readonly nextStep = element('p', 'ng-warning');
+  private readonly portBusy = element('p', 'ng-warning');
+  private readonly portBusyText = element('span');
+  private readonly details = element('details', 'ng-details');
+  private readonly help = element('p', 'ng-help');
+  private readonly receiving = element('p', 'ng-help');
+  private readonly receivingHelp: HTMLParagraphElement;
+  private problem = false;
 
   constructor(
     agent: AgentKind,
+    label: string,
     private readonly strings: AgentStrings,
+    openSettings: string,
   ) {
-    this.connect = button(strings.connect, 'primary');
-    this.disconnect = button(strings.disconnect, 'secondary');
+    this.element.setAttribute('role', 'group');
+    this.element.setAttribute('aria-label', strings.title);
+    this.input.type = 'checkbox';
+    this.input.id = `ng-source-${agent}`;
+    const labelNode = element('label', 'ng-agent-label', label);
+    labelNode.htmlFor = this.input.id;
+
+    // The state and the buttons sit in columns of the whole list, so rows line up.
+    this.connect = button(strings.connect, 'secondary');
+    this.disconnect = button(strings.disconnect, 'link');
+    this.state.setAttribute('role', 'status');
+    const actions = element('div', 'ng-agent-actions');
+    actions.append(this.connect, this.disconnect);
+    const side = element('div', 'ng-agent-side');
+    side.append(this.state, actions);
+
+    const settings = button(openSettings, 'link');
+    this.portBusy.append(this.portBusyText, ' ', settings);
+
     const copy = button(strings.copy, 'secondary');
+    this.receivingHelp = element('p', 'ng-help', strings.receivingHelp);
+    const body = element('div', 'ng-details-body');
+    body.append(this.help, this.receiving, this.receivingHelp, copy);
+    this.details.append(element('summary', undefined, strings.howItWorks), body);
+    this.nextStep.textContent = strings.nextStep ?? '';
+
+    this.element.append(this.input, labelNode, side, this.nextStep, this.portBusy, this.details);
+
+    settings.addEventListener('click', () => vscode.postMessage({ type: 'openSettings' }));
+
     this.connect.addEventListener('click', () =>
       vscode.postMessage({ type: 'connectAgent', agent }),
     );
@@ -35,55 +71,40 @@ export class AgentCard {
       vscode.postMessage({ type: 'disconnectAgent', agent }),
     );
     copy.addEventListener('click', () => vscode.postMessage({ type: 'copyAgentSettings', agent }));
-
-    const hooks = field(`ng-${agent}-hooks`, strings.hooks);
-    this.state.setAttribute('role', 'status');
-    const stateRow = element('div', 'ng-agent-state');
-    stateRow.append(this.state);
-    const actions = element('div', 'ng-agent-actions');
-    actions.append(this.connect, this.disconnect, copy);
-    hooks.body.append(stateRow, actions, this.help);
-
-    const receivingLabel = element('span', 'ng-label', strings.receiving);
-    receivingLabel.id = `ng-${agent}-receiving-label`;
-    const receivingBody = element('div', 'ng-field-body ng-stack');
-    receivingBody.setAttribute('role', 'group');
-    receivingBody.setAttribute('aria-labelledby', receivingLabel.id);
-    this.receiving.setAttribute('aria-live', 'polite');
-    receivingBody.append(this.receiving, element('p', 'ng-help', strings.receivingHelp));
-    this.receivingField.append(receivingLabel, receivingBody);
-
-    this.element.append(hooks.element, this.receivingField);
   }
 
-  show(status: AgentStatus): void {
+  show(status: AgentStatus, on: boolean): void {
     const s = this.strings;
+    const linked = status.hooks === 'connected' || status.hooks === 'outdated';
+    // Without hooks there is nothing to turn on; disabled, so the label cannot tick it either.
+    this.input.hidden = !linked;
+    this.input.disabled = !linked;
+    this.input.checked = on;
     this.state.textContent = s.state[status.hooks];
     this.state.dataset.status = DOT[status.hooks];
-    this.help.textContent = s.help[status.hooks].replace('{0}', status.file);
     // Connect writes the file, so it is offered only where the file can take it.
     this.connect.hidden = status.hooks === 'connected' || status.hooks === 'invalid';
     this.connect.textContent = status.hooks === 'outdated' ? s.reconnect : s.connect;
-    this.disconnect.hidden = status.hooks === 'disconnected' || status.hooks === 'invalid';
+    this.disconnect.hidden = !linked;
+    this.nextStep.hidden = !linked || s.nextStep === undefined;
 
     // The endpoint is shared: it may run for another agent while this one is not connected.
-    const connected = status.hooks === 'connected' || status.hooks === 'outdated';
-    this.receivingField.hidden = !connected || status.receiving === 'off';
+    this.portBusy.hidden = !linked || status.receiving !== 'other-program';
+    this.portBusyText.textContent = s.receivingState['other-program'].replace(
+      '{0}',
+      String(status.port),
+    );
+    const listening = status.receiving === 'listening' || status.receiving === 'other-window';
+    this.receiving.hidden = this.receivingHelp.hidden = !linked || !listening;
     this.receiving.textContent = s.receivingState[status.receiving].replace(
       '{0}',
       String(status.port),
     );
-    this.receiving.classList.toggle('ng-warning', status.receiving === 'other-program');
-  }
-}
+    this.help.textContent = s.help[status.hooks].replace('{0}', status.file);
 
-function field(id: string, label: string) {
-  const node = element('div', 'ng-field');
-  const labelNode = element('span', 'ng-label', label);
-  labelNode.id = `${id}-label`;
-  const body = element('div', 'ng-field-body ng-stack');
-  body.setAttribute('role', 'group');
-  body.setAttribute('aria-labelledby', labelNode.id);
-  node.append(labelNode, body);
-  return { element: node, body };
+    // A problem opens the explanation once; the user may close it again.
+    const problem = status.hooks === 'outdated' || status.hooks === 'invalid';
+    if (problem && !this.problem) this.details.open = true;
+    this.problem = problem;
+  }
 }

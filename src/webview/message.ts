@@ -19,7 +19,7 @@ export class MessageCard {
   ) {
     this.send = button(strings.send, 'primary');
     this.send.type = 'submit';
-    this.field = new Field('ng-message', strings.label, strings.help, this.send);
+    this.field = new Field('ng-message', strings.label, { help: strings.help, sides: [this.send] });
     this.field.input.placeholder = strings.placeholder;
     this.field.input.maxLength = MESSAGE_LIMIT;
     this.field.input.spellcheck = true;
