@@ -58,6 +58,8 @@ On an iPhone, notifications from your own server arrive at once only when the se
 
 The **Your phone** card says why: the server needs an access token or refused it, redirects to another address, cannot be reached, or does not answer within 10 seconds. **Recent notifications** keeps what Nightping sent, and the reason for anything that did not go out. The list stays on this computer.
 
+Behind a proxy, Nightping goes through the proxy VS Code uses: the `http.proxy` setting, or the system's proxy when that setting is empty. This needs VS Code 1.96 or later.
+
 ### Your server, your settings
 
 - Requests go only to the server you entered. There is no telemetry and no other network traffic.
