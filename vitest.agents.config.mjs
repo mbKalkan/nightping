@@ -9,5 +9,7 @@ export default defineConfig({
     testTimeout: 300_000,
     hookTimeout: 30_000,
     fileParallelism: false,
+    // The latency test prints what it measured.
+    silent: false,
   },
 });

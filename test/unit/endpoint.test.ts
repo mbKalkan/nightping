@@ -11,6 +11,8 @@ import {
 } from '../../src/extension/endpoint';
 
 const HOOK_PATH = AGENT_PATHS.claude;
+/** Milliseconds an agent may wait for the endpoint's answer (D-020). */
+const ANSWER_BUDGET_MS = 50;
 
 const running: Endpoint[] = [];
 afterEach(() => {
@@ -50,7 +52,7 @@ async function until(check: () => boolean, ms = 3000): Promise<void> {
   }
 }
 
-/** A raw request, so the Host header can be anything. */
+/** A raw request on a new connection, as a hook makes it, so the Host header can be anything. */
 function send(
   port: number,
   options: { method?: string; path?: string; host?: string; type?: string; body?: string },
@@ -60,6 +62,7 @@ function send(
       {
         host: '127.0.0.1',
         port,
+        agent: false,
         method: options.method ?? 'POST',
         path: options.path ?? HOOK_PATH,
         headers: {
@@ -91,6 +94,22 @@ describe('Endpoint', () => {
     });
     expect(answer).toEqual({ status: 204, body: '' });
     expect(payloads).toEqual([{ hook_event_name: 'Stop' }]);
+  });
+
+  it('answers each hook within the budget, without waiting for the post to be handled', async () => {
+    const port = await freePort();
+    // Handling a post (sending it to ntfy) can take seconds; the agent does not wait for that.
+    const endpoint = new Endpoint(() => new Promise((resolve) => setTimeout(resolve, 2000)));
+    running.push(endpoint);
+    endpoint.start(port);
+    await until(() => endpoint.state.kind === 'listening');
+    const times: number[] = [];
+    for (let i = 0; i < 20; i++) {
+      const started = performance.now();
+      await send(port, { type: 'application/json', body: '{"hook_event_name":"Stop"}' });
+      times.push(performance.now() - started);
+    }
+    expect(Math.max(...times)).toBeLessThan(ANSWER_BUDGET_MS);
   });
 
   it('tells which agent posted, by its path', async () => {
