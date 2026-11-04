@@ -5,6 +5,7 @@
   "version": "0.0.1",
   "publisher": "MBKDevStudio",
   "license": "MIT",
+  "icon": "assets/icon.png",
   "private": true,
   "repository": {
     "type": "git",
@@ -20,6 +21,10 @@
   "categories": [
     "Other"
   ],
+  "galleryBanner": {
+    "color": "#2b1220",
+    "theme": "dark"
+  },
   "keywords": [
     "ntfy",
     "push notification",
@@ -222,6 +227,7 @@
     }
   },
   "files": [
+    "assets/icon.png",
     "dist/**",
     "l10n/**",
     "package.nls*.json",
@@ -239,6 +245,7 @@
     "test": "vitest run",
     "test:visual": "node scripts/build.mjs && playwright test",
     "test:smoke": "node scripts/build.mjs && node scripts/smoke.mjs",
+    "icon": "node scripts/render-icon.mjs",
     "package": "vsce package --no-dependencies",
     "vscode:prepublish": "node scripts/build.mjs --production"
   },
