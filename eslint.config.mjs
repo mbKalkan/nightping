@@ -16,8 +16,12 @@ export default defineConfig(
     },
   },
   {
-    files: ['src/extension/**/*.ts', 'scripts/**/*.mjs', 'test/**/*.ts'],
+    files: ['src/extension/**/*.ts', 'scripts/**/*.mjs', 'test/**/*.ts', 'test/**/*.cjs'],
     languageOptions: { globals: globals.node },
+  },
+  {
+    files: ['**/*.cjs'],
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
   },
   {
     files: ['src/webview/**/*.ts', 'src/shared/**/*.ts'],
