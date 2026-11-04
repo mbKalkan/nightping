@@ -184,6 +184,10 @@ const result = await vscode.commands.executeCommand('nightping.send', {
 
 The command returns `{ "sent": true }`, or `{ "sent": false, "reason": … }` with `"paused"`, `"not-set-up"` or `"failed"` (with an `error` that says why). While notifications are paused, passed messages are held back; the **When to notify** conditions do not apply to them. Anything else it cannot send, such as a priority of 9, fails with an error that names the problem.
 
+## Remote windows
+
+In a remote window (Remote - SSH, WSL, Dev Containers), Nightping still runs on your own computer and sends from there. It connects the AI agents on your own computer only: an agent that runs on the remote machine sends its hooks to that machine's `127.0.0.1`, where Nightping does not listen, so its turns do not notify.
+
 ## License
 
 [MIT](LICENSE) © MBK Dev Studio
