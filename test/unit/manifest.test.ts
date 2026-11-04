@@ -5,6 +5,8 @@ const readJson = (path: string) =>
   JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
 
 const manifest = readJson('package.json') as {
+  icon: string;
+  files: string[];
   engines: { vscode: string };
   extensionKind: string[];
   contributes: {
@@ -17,6 +19,15 @@ const manifest = readJson('package.json') as {
 };
 
 describe('extension manifest', () => {
+  it('ships a PNG icon of at least 128 px, as the Marketplace asks', () => {
+    expect(manifest.files).toContain(manifest.icon);
+    const png = readFileSync(manifest.icon);
+    expect(png.subarray(1, 4).toString('ascii')).toBe('PNG');
+    // The IHDR chunk holds the width and height right after the signature.
+    expect(png.readUInt32BE(16)).toBeGreaterThanOrEqual(128);
+    expect(png.readUInt32BE(20)).toBe(png.readUInt32BE(16));
+  });
+
   it('targets the same VS Code API version as @types/vscode', () => {
     const engine = manifest.engines.vscode.replace(/^\^/, '');
     const types = manifest.devDependencies['@types/vscode'].replace(/^[\^~]/, '');

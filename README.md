@@ -1,3 +1,5 @@
+<img src="assets/icon.png" alt="" width="96" align="right">
+
 # Nightping
 
 > **Status:** in development. Not yet on the Marketplace or Open VSX.
