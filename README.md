@@ -2,7 +2,9 @@
 
 # Nightping
 
-> **Status:** in development. Not yet on the Marketplace or Open VSX.
+[![Visual Studio Marketplace](https://vsmarketplacebadges.dev/version-short/MBKDevStudio.nightping.svg?label=Marketplace&color=007ec6)](https://marketplace.visualstudio.com/items?itemName=MBKDevStudio.nightping)
+[![Open VSX](https://img.shields.io/open-vsx/v/MBKDevStudio/nightping?label=Open%20VSX)](https://open-vsx.org/extension/MBKDevStudio/nightping)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Phone push notifications from VS Code, through **your own [ntfy](https://ntfy.sh) server or topic**. Start a long build, a test run, a notebook cell or an AI agent, walk away, and get a ping when it finishes, fails or needs your approval.
 
