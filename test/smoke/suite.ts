@@ -13,6 +13,8 @@ import { copilotHooks } from '../../src/extension/copilot/settings';
 import { hookSettings } from '../../src/extension/hookFile';
 
 const EXTENSION_ID = 'MBKDevStudio.nightping';
+/** Milliseconds from an agent's hook to the request to ntfy (D-020). */
+const SEND_BUDGET_MS = 500;
 
 async function waitFor<T>(probe: () => T | undefined, timeoutMs = 30_000): Promise<T> {
   const start = Date.now();
@@ -377,13 +379,17 @@ const tests: Record<string, () => Promise<void>> = {
 
       const session = { session_id: 'smoke', cwd: join(dir, 'my-app') };
       await hook(port, { ...session, hook_event_name: 'UserPromptSubmit', prompt: 'x' });
+      const stopped = Date.now();
       await hook(port, {
         ...session,
         hook_event_name: 'Stop',
         last_assistant_message: 'Done. Everything passes.',
         background_tasks: [],
       });
-      const finished = JSON.parse((await waitFor(() => ntfy.requests[0])).body) as Message;
+      const sent = await waitFor(() => ntfy.requests[0]);
+      // Nightping's own part, from the hook to the request to ntfy (D-020).
+      assert.ok(sent.at - stopped <= SEND_BUDGET_MS, `sent after ${sent.at - stopped} ms`);
+      const finished = JSON.parse(sent.body) as Message;
       assert.equal(finished.title, 'Claude Code · my-app');
       assert.match(finished.message, /^Finished · \d+s\nDone\.$/);
 
@@ -646,13 +652,18 @@ async function runTask(name: string, command: string): Promise<number | undefine
 
 /** A local stand-in for ntfy that records each request and answers like ntfy does. */
 async function fakeNtfy() {
-  const requests: { url?: string; headers: http.IncomingHttpHeaders; body: string }[] = [];
+  const requests: {
+    url?: string;
+    headers: http.IncomingHttpHeaders;
+    body: string;
+    at: number;
+  }[] = [];
   const server = http.createServer((request, response) => {
     let body = '';
     request.setEncoding('utf8');
     request.on('data', (chunk: string) => (body += chunk));
     request.on('end', () => {
-      requests.push({ url: request.url, headers: request.headers, body });
+      requests.push({ url: request.url, headers: request.headers, body, at: Date.now() });
       response.writeHead(200, { 'Content-Type': 'application/json' });
       response.end('{"id":"smoke","event":"message"}');
     });
