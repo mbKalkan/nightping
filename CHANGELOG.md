@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-05
+
+First release: phone notifications through your own ntfy server when VS Code tasks, terminal commands, notebook cells and debug sessions finish, and when Claude Code, Codex or GitHub Copilot finishes a turn or waits for you.
+
 ### Added
 
 - **GitHub Copilot notifications**: when a turn finishes (with how long it took), in VS Code's agent mode or in Copilot CLI, and when Copilot CLI waits for your approval or asks you something. **Connect** in the panel (or **Nightping: Connect GitHub Copilot…**) adds Nightping's own hooks file, `~/.copilot/hooks/nightping.json`, after you confirm; both read it, and your own hooks files are never touched. **Disconnect** deletes it. The hooks forward each event with curl to Nightping on `127.0.0.1`, take well under a second, and still succeed while VS Code is closed. Its row under **AI agents** in the panel shows the state and turns it on and off.
@@ -24,3 +28,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Nightping: Set Up…** asks for your server, a topic (with a random, hard-to-guess suggestion) and an optional access token, then sends a test notification.
 - **Nightping: Send Test Notification**, and when it fails, a plain reason with the next step: the server needs or refused the token, redirects elsewhere, cannot be reached, or does not answer within 10 seconds.
 - **Nightping: Set Access Token…** and **Clear Access Token**. The token is kept in VS Code's secret storage on this computer, never in the settings.
+
+[0.1.0]: https://github.com/mbKalkan/nightping/releases/tag/v0.1.0
