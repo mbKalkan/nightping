@@ -1,5 +1,14 @@
 import * as vscode from 'vscode';
-import { clearToken, pause, resume, sendTest, setToken, setUp, type Services } from './commands';
+import {
+  clearToken,
+  pause,
+  resume,
+  send,
+  sendTest,
+  setToken,
+  setUp,
+  type Services,
+} from './commands';
 import { ClaudeBridge } from './claude/bridge';
 import type { FinishedEvent } from './events';
 import { decide } from './filter';
@@ -61,6 +70,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('nightping.open', () => Panel.show(panel)),
     vscode.commands.registerCommand('nightping.setUp', () => setUp(services)),
     vscode.commands.registerCommand('nightping.sendTest', () => sendTest(services)),
+    vscode.commands.registerCommand('nightping.send', (input?: unknown) => send(services, input)),
     vscode.commands.registerCommand('nightping.setToken', () => setToken(services)),
     vscode.commands.registerCommand('nightping.clearToken', () => clearToken(services)),
     vscode.commands.registerCommand('nightping.pause', (minutes?: unknown) =>

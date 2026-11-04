@@ -12,7 +12,9 @@ Phone push notifications from VS Code, through **your own [ntfy](https://ntfy.sh
 - **Debug sessions**: a debug session ended.
 - **Claude Code**: a turn finished, Claude asks you something, or it waits for your approval; in a terminal or in VS Code's Claude Code panel. See [Claude Code](#claude-code) below.
 
-Coming next: other AI agents (Codex, Copilot, Gemini CLI, Cursor and others through their hooks) and a `nightping.send` command for other extensions and key bindings.
+- **Your own messages**: typed in the panel or with **Nightping: Send Message…**, or sent by a key binding or another extension. See [Send your own message](#send-your-own-message) below.
+
+Coming next: other AI agents (Codex, Copilot, Gemini CLI, Cursor and others through their hooks).
 
 A notification reads at a glance: the title says what finished, the message how it ended and how long it took, for example **❌ Task** / *Failed (exit 1) · 4m 12s*. Failures, questions and approval requests arrive at high priority.
 
@@ -54,6 +56,36 @@ All of this is in the **When to notify** card of the Nightping panel, and change
 **Pause** notifications for 30 minutes, an hour, four hours or until you resume: with **Pause…** at the top of the panel, from the status bar item's hover, or with **Nightping: Pause Notifications…**. The pause holds in every VS Code window on this computer, the status bar says **Paused**, and **Resume** ends it. Test notifications still go out. For a key binding, pass the minutes: `{ "key": "…", "command": "nightping.pause", "args": 60 }`.
 
 Hovering over the status bar item also shows the last notification, or why it was not sent.
+
+## Send your own message
+
+Type a message in the panel's **Send a message** card, or run **Nightping: Send Message…**, and it goes to your phone at once, even while notifications are paused.
+
+Key bindings and other extensions pass the message to the `nightping.send` command, as text or as an object:
+
+```jsonc
+// keybindings.json
+{
+  "key": "ctrl+alt+n",
+  "command": "nightping.send",
+  "args": { "title": "Lunch", "message": "Back in five minutes", "priority": 3, "tags": ["sandwich"] }
+}
+```
+
+```ts
+// In another extension
+const result = await vscode.commands.executeCommand('nightping.send', {
+  title: 'Deploy',
+  message: 'Staging is up',
+});
+```
+
+- `message` (required): up to 1000 characters; longer text is cut.
+- `title`: one line, up to 100 characters; `VS Code` when left out.
+- `priority`: 1 (min) to 5 (max), as in ntfy; 3 when left out.
+- `tags`: up to 5 [ntfy tags](https://docs.ntfy.sh/emojis/); emoji short codes such as `warning` or `tada` show as emojis.
+
+The command returns `{ "sent": true }`, or `{ "sent": false, "reason": … }` with `"paused"`, `"not-set-up"` or `"failed"` (with an `error` that says why). While notifications are paused, passed messages are held back; the **When to notify** conditions do not apply to them. Anything else it cannot send, such as a priority of 9, fails with an error that names the problem.
 
 ## Your server, your settings
 

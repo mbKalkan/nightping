@@ -5,6 +5,7 @@
   "command.open": "Aç",
   "command.setUp": "Kurulum…",
   "command.sendTest": "Test Bildirimi Gönder",
+  "command.send": "Mesaj Gönder…",
   "command.pause": "Bildirimleri Duraklat…",
   "command.resume": "Bildirimleri Sürdür",
   "command.connectClaudeCode": "Claude Code'u Bağla…",

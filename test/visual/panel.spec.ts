@@ -90,6 +90,19 @@ for (const theme of ['dark', 'light', 'hcDark', 'hcLight'] as ThemeName[]) {
       expect(panel.problems).toEqual([]);
     });
 
+    test('offers to send a message of one’s own', async ({ page }) => {
+      const panel = await openPanel(page, theme);
+      await panel.init(ready);
+      const card = messageCard(page);
+      await expect(messageInput(page)).toHaveAttribute('placeholder', strings.message.placeholder);
+      await expect(sendButton(page)).toBeDisabled();
+      await messageInput(page).fill('Back in five minutes');
+      await expect(sendButton(page)).toBeEnabled();
+      expect(await lowestTextContrast(page)).toBeGreaterThanOrEqual(theme === 'hcDark' ? 7 : 4.5);
+      await card.screenshot({ path: `${SCREENS}/message-${theme}.png` });
+      expect(panel.problems).toEqual([]);
+    });
+
     test('says when notifications are paused', async ({ page }) => {
       const panel = await openPanel(page, theme);
       await panel.init({ ...ready, pause: {} });
@@ -104,6 +117,43 @@ for (const theme of ['dark', 'light', 'hcDark', 'hcLight'] as ThemeName[]) {
 
 const notifyCard = (page: Page) => page.getByRole('region', { name: strings.whenToNotify });
 const claudeCard = (page: Page) => page.getByRole('region', { name: strings.claude.title });
+const messageCard = (page: Page) => page.getByRole('region', { name: strings.message.title });
+const messageInput = (page: Page) => page.getByLabel(strings.message.label, { exact: true });
+const sendButton = (page: Page) =>
+  messageCard(page).getByRole('button', { name: strings.message.send, exact: true });
+
+test('sends a typed message and says how it went', async ({ page }) => {
+  const panel = await openPanel(page, 'dark');
+  await panel.init(notSetUp);
+  await messageInput(page).fill('Back in five minutes');
+  // Nowhere to send it yet.
+  await expect(sendButton(page)).toBeDisabled();
+
+  await panel.post({ type: 'state', state: ready });
+  await messageInput(page).press('Enter');
+  const card = messageCard(page);
+  await expect(card.getByRole('button', { name: strings.sending })).toBeDisabled();
+  expect(await panel.sent()).toEqual([{ type: 'send', message: 'Back in five minutes' }]);
+
+  // A failure keeps the text, so it can go again once the problem is fixed.
+  const error = 'Could not reach https://ntfy.example.com (ECONNREFUSED).';
+  await panel.post({ type: 'messageResult', time: Date.now(), error });
+  const result = card.getByRole('status');
+  await expect(result).toHaveText(error);
+  await expect(result).toHaveClass(/ng-failed/);
+  await expect(messageInput(page)).toHaveValue('Back in five minutes');
+  await expect(sendButton(page)).toBeEnabled();
+  await card.screenshot({ path: `${SCREENS}/message-failed-dark.png` });
+
+  await sendButton(page).click();
+  await panel.post({ type: 'messageResult', time: new Date(2026, 10, 4, 9, 5).getTime() });
+  await expect(result).toHaveText(/^Sent at 9:05\sAM\.$/);
+  await expect(result).not.toHaveClass(/ng-failed/);
+  await expect(messageInput(page)).toHaveValue('');
+  await expect(sendButton(page)).toBeDisabled();
+  // The test notification's line is the form's own.
+  await expect(page.locator('.ng-actions .ng-result')).toHaveText('');
+});
 
 test('connects, disconnects and copies the Claude Code hooks', async ({ page }) => {
   const panel = await openPanel(page, 'dark');
@@ -358,7 +408,7 @@ test('tells how the test went', async ({ page }) => {
   const error = 'https://ntfy.example.com refused the access token (HTTP 401).';
   await panel.post({ type: 'result', time: Date.now(), error });
   await panel.post({ type: 'busy', busy: false });
-  const result = page.locator('.ng-result');
+  const result = page.locator('.ng-actions .ng-result');
   await expect(result).toHaveText(error);
   await expect(result).toHaveClass(/ng-failed/);
   await page.screenshot({ path: `${SCREENS}/failed-dark.png` });
@@ -388,4 +438,6 @@ test('fits a narrow panel without scrolling sideways', async ({ page }) => {
   });
   expect(overflow).toBeLessThanOrEqual(0);
   await page.screenshot({ path: `${SCREENS}/narrow-dark.png`, fullPage: true });
+  // The panel scrolls inside #app, so the lower cards get their own pictures.
+  await messageCard(page).screenshot({ path: `${SCREENS}/narrow-message-dark.png` });
 });

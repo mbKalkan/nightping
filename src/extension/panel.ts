@@ -3,6 +3,8 @@ import type { HostToWebviewMessage, PanelState, WebviewToHostMessage } from '../
 import { isServerUrl, isToken, isTopic, normalizeServer } from './config';
 import { samplePreviews } from './format';
 import type { History } from './history';
+import { readMessage } from './message';
+import type { Message } from './ntfy';
 import type { Pauser } from './pause';
 import type { ClaudeBridge } from './claude/bridge';
 import { settingFor } from './prefs';
@@ -13,7 +15,7 @@ import {
   TOKEN_KEY,
   type Sender,
 } from './sender';
-import { panelStrings, testMessage } from './texts';
+import { notReadyText, panelStrings, testMessage } from './texts';
 import { buildWebviewHtml } from './webviewHtml';
 
 export const PANEL_VIEW_TYPE = 'nightping.panel';
@@ -114,6 +116,16 @@ export class Panel {
       case 'sendTest':
         await this.sendTest();
         return;
+      case 'send': {
+        // The panel waits for an answer, so even a message it should not have sent gets one.
+        const typed = readMessage(
+          vscode.l10n.t,
+          typeof message.message === 'string' ? message.message : '',
+        );
+        const error = typed.ok ? await this.deliver(typed.message) : typed.problem;
+        this.post({ type: 'messageResult', time: Date.now(), error });
+        return;
+      }
       case 'removeToken':
         await this.context.secrets.delete(TOKEN_KEY);
         return;
@@ -155,24 +167,23 @@ export class Panel {
   private async sendTest(): Promise<void> {
     this.post({ type: 'busy', busy: true });
     try {
-      const outcome = await this.context.sender.send(testMessage(vscode.l10n.t));
-      const time = Date.now();
-      if (outcome.kind === 'sent') {
-        this.post({ type: 'result', time });
-      } else if (outcome.kind === 'failed') {
-        this.post({ type: 'result', time, error: outcome.text });
-      } else {
-        this.post({
-          type: 'result',
-          time,
-          error:
-            outcome.state.kind === 'incomplete'
-              ? vscode.l10n.t('Nightping is not set up yet.')
-              : vscode.l10n.t('The ntfy server or topic in the settings is not valid.'),
-        });
-      }
+      const error = await this.deliver(testMessage(vscode.l10n.t));
+      this.post({ type: 'result', time: Date.now(), error });
     } finally {
       this.post({ type: 'busy', busy: false });
+    }
+  }
+
+  /** Sends, and says why when nothing went out. */
+  private async deliver(message: Message): Promise<string | undefined> {
+    const outcome = await this.context.sender.send(message);
+    switch (outcome.kind) {
+      case 'sent':
+        return undefined;
+      case 'failed':
+        return outcome.text;
+      case 'not-ready':
+        return notReadyText(vscode.l10n.t, outcome.state.kind);
     }
   }
 

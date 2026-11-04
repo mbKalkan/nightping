@@ -2,9 +2,10 @@
 import * as vscode from 'vscode';
 import type { ClaudeBridge } from './claude/bridge';
 import { isServerUrl, isToken, isTopic, normalizeServer, suggestTopic } from './config';
+import { readMessage } from './message';
 import { isPauseMinutes, PAUSE_MINUTES, type Pauser } from './pause';
 import { saveDestination, TOKEN_KEY, type Sender, type SendOutcome } from './sender';
-import { testMessage } from './texts';
+import { notReadyText, testMessage } from './texts';
 
 export interface Services {
   secrets: vscode.SecretStorage;
@@ -35,6 +36,51 @@ export async function pause(services: Services, minutes?: unknown): Promise<void
 
 export async function resume(services: Services): Promise<void> {
   await services.pauser.resume();
+}
+
+/** What `nightping.send` gives back to a key binding or another extension. */
+export type SendResult =
+  | { sent: true }
+  | { sent: false; reason: 'paused' | 'not-set-up' }
+  | { sent: false; reason: 'failed'; error: string };
+
+/**
+ * Sends a message of one's own. Key bindings and other extensions pass it, as text or as
+ * `{ message, title?, priority?, tags? }`, and get the result back; a pause holds it back. Without
+ * it, asks for the text and sends that even while paused, as a test notification goes out.
+ */
+export async function send(services: Services, input?: unknown): Promise<SendResult | undefined> {
+  if (input === undefined) {
+    const text = await vscode.window.showInputBox({
+      title: vscode.l10n.t('Send a Message'),
+      prompt: vscode.l10n.t('Goes to your phone now, even while notifications are paused.'),
+      ignoreFocusOut: true,
+    });
+    const typed = readMessage(vscode.l10n.t, text ?? '');
+    if (!typed.ok) return undefined;
+    const outcome = await vscode.window.withProgress(
+      { location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Sending…') },
+      () => services.sender.send(typed.message),
+    );
+    report(outcome, vscode.l10n.t('Message sent.'));
+    return resultOf(outcome);
+  }
+  const passed = readMessage(vscode.l10n.t, input);
+  // A key binding or extension that passes something else hears why, as an error.
+  if (!passed.ok) throw new Error(`nightping.send: ${passed.problem}`);
+  if (services.pauser.current() !== undefined) return { sent: false, reason: 'paused' };
+  return resultOf(await services.sender.send(passed.message));
+}
+
+function resultOf(outcome: SendOutcome): SendResult {
+  switch (outcome.kind) {
+    case 'sent':
+      return { sent: true };
+    case 'not-ready':
+      return { sent: false, reason: 'not-set-up' };
+    case 'failed':
+      return { sent: false, reason: 'failed', error: outcome.text };
+  }
 }
 
 function pauseLength(minutes: number): string {
@@ -129,7 +175,8 @@ export async function sendTest(services: Services, next?: Action): Promise<void>
     },
     () => services.sender.send(testMessage(vscode.l10n.t)),
   );
-  report(outcome, next);
+  // Short on purpose: a collapsed toast shows one line, and the topic is in the status bar tooltip.
+  report(outcome, vscode.l10n.t('Test notification sent. Check your phone.'), next);
 }
 
 export async function setToken(services: Services): Promise<void> {
@@ -185,25 +232,14 @@ function tokenProblem(value: string): string | undefined {
     : vscode.l10n.t('An access token has no spaces or special characters.');
 }
 
-function report(outcome: SendOutcome, next?: Action): void {
+/** Tells how a send the user started went; `sent` is the line for success. */
+function report(outcome: SendOutcome, sent: string, next?: Action): void {
   switch (outcome.kind) {
     case 'not-ready':
-      offer(
-        'warning',
-        outcome.state.kind === 'incomplete'
-          ? vscode.l10n.t('Nightping is not set up yet.')
-          : vscode.l10n.t('The ntfy server or topic in the settings is not valid.'),
-        setUpAction(),
-      );
+      offer('warning', notReadyText(vscode.l10n.t, outcome.state.kind), setUpAction());
       return;
     case 'sent':
-      // Short on purpose: a collapsed toast shows one line, and the topic is in the status bar
-      // tooltip.
-      offer(
-        'info',
-        vscode.l10n.t('Test notification sent. Check your phone.'),
-        ...(next ? [next] : []),
-      );
+      offer('info', sent, ...(next ? [next] : []));
       return;
     case 'failed': {
       const { result, hasToken, text } = outcome;

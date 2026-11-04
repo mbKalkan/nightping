@@ -9,49 +9,12 @@ import {
 import type { HostToWebviewMessage, PanelState, PanelStrings, SentEntry } from '../shared/protocol';
 import { ClaudeCard } from './claude';
 import { button, element } from './dom';
+import { Field } from './field';
+import { MessageCard } from './message';
 import { NotifyCard } from './notify';
 import { vscode } from './vscodeApi';
 
 const app = document.getElementById('app') as HTMLElement;
-
-/** A labelled input with its help line, an error line and an optional button beside it. */
-class Field {
-  readonly input = element('input', 'ng-input');
-  readonly element = element('div', 'ng-field');
-  private readonly error = element('p', 'ng-error');
-  /** Errors wait until the user leaves the field once, so typing is not scolded. */
-  touched = false;
-
-  constructor(id: string, label: string, help: string, side?: HTMLButtonElement) {
-    const labelNode = element('label', 'ng-label', label);
-    labelNode.htmlFor = id;
-    this.input.id = id;
-    this.input.spellcheck = false;
-    this.input.autocomplete = 'off';
-    const helpNode = element('p', 'ng-help', help);
-    helpNode.id = `${id}-help`;
-    this.error.id = `${id}-error`;
-    this.error.hidden = true;
-    this.input.setAttribute('aria-describedby', `${helpNode.id} ${this.error.id}`);
-    this.input.addEventListener('blur', () => (this.touched = true));
-    const control = element('div', 'ng-control');
-    control.append(this.input);
-    if (side) control.append(side);
-    const body = element('div', 'ng-field-body');
-    body.append(control, this.error, helpNode);
-    this.element.append(labelNode, body);
-  }
-
-  get value(): string {
-    return this.input.value.trim();
-  }
-
-  showError(text: string | undefined): void {
-    this.error.hidden = text === undefined;
-    this.error.textContent = text ?? '';
-    this.input.toggleAttribute('aria-invalid', text !== undefined);
-  }
-}
 
 class PanelView {
   private readonly status = element('span', 'ng-status');
@@ -68,6 +31,7 @@ class PanelView {
   private readonly clear: HTMLButtonElement;
   private readonly notify: NotifyCard;
   private readonly claude: ClaudeCard;
+  private readonly message: MessageCard;
   private readonly time: Intl.DateTimeFormat;
   private readonly dateTime: Intl.DateTimeFormat;
   private state: PanelState | undefined;
@@ -136,6 +100,10 @@ class PanelView {
     const notify = this.card(strings.whenToNotify);
     notify.append(this.notify.element);
 
+    this.message = new MessageCard(strings.message, strings.sending, (ms) => this.time.format(ms));
+    const message = this.card(strings.message.title);
+    message.append(this.message.element);
+
     // Recent notifications.
     this.clear = button(strings.clearRecent, 'link');
     this.empty.textContent = strings.recentEmpty;
@@ -147,7 +115,7 @@ class PanelView {
     const settings = button(strings.allSettings, 'link');
     footer.append(element('p', 'ng-privacy', strings.privacy), settings);
 
-    main.append(header, destination, claude, notify, recent, footer);
+    main.append(header, destination, claude, notify, message, recent, footer);
     app.replaceChildren(main);
 
     for (const field of [this.server, this.topic, this.token]) {
@@ -198,6 +166,7 @@ class PanelView {
     this.removeToken.hidden = !state.hasToken;
     this.claude.show(state.claude);
     this.notify.show(state);
+    this.message.show(state);
     this.renderHistory(state.history);
     this.check();
   }
@@ -246,6 +215,10 @@ class PanelView {
     } else {
       this.say(error, true);
     }
+  }
+
+  messageSent(time: number, error?: string): void {
+    this.message.sent(time, error);
   }
 
   private say(text: string, failed = false): void {
@@ -367,6 +340,8 @@ window.addEventListener('message', (event: MessageEvent<HostToWebviewMessage>) =
     panel?.saved();
   } else if (message.type === 'result') {
     panel?.sent(message.time, message.error);
+  } else if (message.type === 'messageResult') {
+    panel?.messageSent(message.time, message.error);
   }
 });
 

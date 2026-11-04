@@ -36,6 +36,7 @@ const tests: Record<string, () => Promise<void>> = {
       'nightping.open',
       'nightping.setUp',
       'nightping.sendTest',
+      'nightping.send',
       'nightping.setToken',
       'nightping.clearToken',
       'nightping.pause',
@@ -233,6 +234,48 @@ const tests: Record<string, () => Promise<void>> = {
       await vscode.commands.executeCommand('nightping.resume');
       await reset();
       await ntfy.close();
+    }
+  },
+
+  async 'sends what a key binding or another extension passes, and says how it went'() {
+    const send = (input: unknown) => vscode.commands.executeCommand('nightping.send', input);
+    assert.deepEqual(await send('Hi'), { sent: false, reason: 'not-set-up' });
+
+    const ntfy = await fakeNtfy();
+    const reset = await useSettings({ server: ntfy.server, topic: 'smoke-test' });
+    try {
+      const passed = { title: 'Deploy', message: 'Staging is up', priority: 4, tags: ['rocket'] };
+      assert.deepEqual(await send(passed), { sent: true });
+      assert.deepEqual(JSON.parse(ntfy.requests[0].body), { topic: 'smoke-test', ...passed });
+      // The text alone gets a title, so the phone does not show the topic instead.
+      assert.deepEqual(await send('Back in five minutes'), { sent: true });
+      assert.deepEqual(JSON.parse(ntfy.requests[1].body), {
+        topic: 'smoke-test',
+        title: 'VS Code',
+        message: 'Back in five minutes',
+      });
+
+      await assert.rejects(Promise.resolve(send({ message: ' ' })), /"message" must be text/);
+      await assert.rejects(Promise.resolve(send({ message: 'Hi', priority: 9 })), /"priority"/);
+
+      await vscode.commands.executeCommand('nightping.pause', 60);
+      assert.deepEqual(await send('Hi'), { sent: false, reason: 'paused' });
+      assert.equal(ntfy.requests.length, 2);
+    } finally {
+      await vscode.commands.executeCommand('nightping.resume');
+      await reset();
+      await ntfy.close();
+    }
+
+    // The server went away: the caller hears why, as the panel's history says it.
+    const gone = await useSettings({ server: ntfy.server, topic: 'smoke-test' });
+    try {
+      const result = (await send('Hi')) as { sent: boolean; reason: string; error: string };
+      assert.equal(result.sent, false);
+      assert.equal(result.reason, 'failed');
+      assert.match(result.error, /^Could not reach http:\/\/127\.0\.0\.1:\d+ \(ECONNREFUSED\)\.$/);
+    } finally {
+      await gone();
     }
   },
 
