@@ -55,6 +55,7 @@ export interface PanelStrings {
   appliesNow: string;
   claude: AgentStrings;
   codex: AgentStrings;
+  copilot: AgentStrings;
   message: {
     title: string;
     label: string;
@@ -94,13 +95,14 @@ export interface AgentStrings {
 export type PanelStatus = 'ready' | 'incomplete' | 'invalid';
 
 /** The AI agents whose hooks post to Nightping. */
-export type AgentKind = 'claude' | 'codex';
+export type AgentKind = 'claude' | 'codex' | 'copilot';
 
 /** Longer messages are cut: a phone shows a few lines, and ntfy turns 4 KB into a file. */
 export const MESSAGE_LIMIT = 1000;
 
 /** What can finish in VS Code and send a notification. */
-export type SourceKind = 'task' | 'terminal' | 'notebook' | 'debug' | 'claude' | 'codex';
+export type SourceKind =
+  'task' | 'terminal' | 'notebook' | 'debug' | 'claude' | 'codex' | 'copilot';
 
 export const SOURCE_KINDS: readonly SourceKind[] = [
   'task',
@@ -109,6 +111,7 @@ export const SOURCE_KINDS: readonly SourceKind[] = [
   'debug',
   'claude',
   'codex',
+  'copilot',
 ];
 
 /** How much a notification says: each level adds to the one before. */
@@ -178,6 +181,7 @@ export interface PanelState {
   terminals: { open: number; reporting: number };
   claude: AgentStatus;
   codex: AgentStatus;
+  copilot: AgentStatus;
 }
 
 export type HostToWebviewMessage =

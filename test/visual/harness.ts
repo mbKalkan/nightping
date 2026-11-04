@@ -154,6 +154,13 @@ export const notSetUp: PanelState = {
     receiving: 'off',
     port: 47391,
   },
+  copilot: {
+    hooks: 'disconnected',
+    found: true,
+    file: '~/.copilot/hooks/nightping.json',
+    receiving: 'off',
+    port: 47391,
+  },
 };
 
 const NOW = Date.now();
@@ -178,6 +185,13 @@ export const ready: PanelState = {
     hooks: 'disconnected',
     found: true,
     file: '~/.codex/hooks.json',
+    receiving: 'listening',
+    port: 47391,
+  },
+  copilot: {
+    hooks: 'connected',
+    found: true,
+    file: '~/.copilot/hooks/nightping.json',
     receiving: 'listening',
     port: 47391,
   },

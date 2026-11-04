@@ -1,12 +1,15 @@
 // Nightping's own hooks in an agent's JSON hooks file (Claude Code's settings, Codex's
-// hooks.json): added on Connect, removed on Disconnect, and nothing else in the file touched.
-// Pure: works on the file's text. Both agents use the same shape: event → groups → hooks.
+// hooks.json, Copilot's hooks folder): added on Connect, removed on Disconnect, and nothing else
+// in the file touched. Pure: works on the file's text. Each event lists groups of hooks (Claude
+// Code, Codex) or the hooks themselves (Copilot).
 
 /** What Nightping's hooks look like in one agent's file. */
 export interface HookSpec {
   events: readonly string[];
-  /** The group Nightping adds to each event. */
-  group(port: number): Record<string, unknown>;
+  /** What Nightping adds to each event: a group holding its hook, or the hook itself. */
+  entry(port: number): Record<string, unknown>;
+  /** Other top-level fields the file needs, kept when the file already has them. */
+  header?: Record<string, unknown>;
   /** The port of a hook that is Nightping's, or `undefined` for anyone else's. */
   portOf(hook: unknown): number | undefined;
 }
@@ -23,10 +26,10 @@ export type HooksState =
 export class InvalidSettings extends Error {}
 
 /** The hooks to add, as a file fragment: what Copy Settings puts on the clipboard. */
-export function hookSettings(spec: HookSpec, port: number): { hooks: Record<string, unknown[]> } {
+export function hookSettings(spec: HookSpec, port: number): Record<string, unknown> {
   const hooks: Record<string, unknown[]> = {};
-  for (const event of spec.events) hooks[event] = [spec.group(port)];
-  return { hooks };
+  for (const event of spec.events) hooks[event] = [spec.entry(port)];
+  return { ...spec.header, hooks };
 }
 
 export function hooksState(spec: HookSpec, text: string | undefined, port: number): HooksState {
@@ -58,10 +61,10 @@ export function hooksState(spec: HookSpec, text: string | undefined, port: numbe
 
 /** The file with Nightping's hooks for `port`, and any older ones removed. */
 export function connectedText(spec: HookSpec, text: string | undefined, port: number): string {
-  const settings = withoutOurs(spec, parse(text));
+  const settings = { ...spec.header, ...withoutOurs(spec, parse(text)) };
   const hooks = (settings.hooks ?? {}) as Record<string, unknown[]>;
   for (const event of spec.events) {
-    hooks[event] = [...(Array.isArray(hooks[event]) ? hooks[event] : []), spec.group(port)];
+    hooks[event] = [...(Array.isArray(hooks[event]) ? hooks[event] : []), spec.entry(port)];
   }
   settings.hooks = hooks;
   return format(settings, text);
@@ -72,14 +75,15 @@ export function disconnectedText(spec: HookSpec, text: string | undefined): stri
   return format(withoutOurs(spec, parse(text)), text);
 }
 
-function hooksIn(groups: unknown): unknown[] {
-  if (!Array.isArray(groups)) return [];
-  return groups.flatMap((group) =>
-    typeof group === 'object' &&
-    group !== null &&
-    Array.isArray((group as { hooks?: unknown }).hooks)
-      ? (group as { hooks: unknown[] }).hooks
-      : [],
+/** The hooks under an event: those in its groups, and those listed directly. */
+function hooksIn(entries: unknown): unknown[] {
+  if (!Array.isArray(entries)) return [];
+  return entries.flatMap((entry) =>
+    typeof entry === 'object' &&
+    entry !== null &&
+    Array.isArray((entry as { hooks?: unknown }).hooks)
+      ? (entry as { hooks: unknown[] }).hooks
+      : [entry],
   );
 }
 
@@ -93,7 +97,12 @@ function withoutOurs(spec: HookSpec, settings: Record<string, unknown>): Record<
     const kept = groups.flatMap((group) => {
       if (typeof group !== 'object' || group === null) return [group];
       const entries = (group as { hooks?: unknown }).hooks;
-      if (!Array.isArray(entries)) return [group];
+      if (!Array.isArray(entries)) {
+        // A hook listed directly under the event.
+        if (spec.portOf(group) === undefined) return [group];
+        changed = true;
+        return [];
+      }
       const others = entries.filter((hook) => spec.portOf(hook) === undefined);
       if (others.length === entries.length) return [group];
       changed = true;

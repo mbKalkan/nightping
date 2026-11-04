@@ -101,7 +101,8 @@ describe('Endpoint', () => {
     const json = { type: 'application/json', body: '{}' };
     expect((await send(port, { ...json, path: AGENT_PATHS.codex })).status).toBe(204);
     expect((await send(port, { ...json, path: AGENT_PATHS.claude })).status).toBe(204);
-    expect(agents).toEqual(['codex', 'claude']);
+    expect((await send(port, { ...json, path: AGENT_PATHS.copilot })).status).toBe(204);
+    expect(agents).toEqual(['codex', 'claude', 'copilot']);
   });
 
   it('listens while at least one agent is connected', async () => {

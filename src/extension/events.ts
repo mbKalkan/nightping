@@ -28,10 +28,14 @@ export type { AgentKind };
 
 export type AgentEvent = Extract<FinishedEvent, { kind: AgentKind }>;
 
-export const AGENT_NAMES: Record<AgentKind, string> = { claude: 'Claude Code', codex: 'Codex' };
+export const AGENT_NAMES: Record<AgentKind, string> = {
+  claude: 'Claude Code',
+  codex: 'Codex',
+  copilot: 'Copilot',
+};
 
 export function isAgent(event: FinishedEvent): event is AgentEvent {
-  return event.kind === 'claude' || event.kind === 'codex';
+  return event.kind === 'claude' || event.kind === 'codex' || event.kind === 'copilot';
 }
 
 export type Outcome =
@@ -57,6 +61,7 @@ export function outcomeOf(event: FinishedEvent): Outcome {
       return { kind: 'finished' };
     case 'claude':
     case 'codex':
+    case 'copilot':
       return event.state === 'finished' ? { kind: 'finished' } : { kind: 'needs-you' };
   }
 }

@@ -12,6 +12,7 @@ import {
 import { AgentBridge } from './agentBridge';
 import { claudeConfig } from './claude/bridge';
 import { codexConfig } from './codex/bridge';
+import { copilotConfig } from './copilot/bridge';
 import type { FinishedEvent } from './events';
 import { Endpoint } from './endpoint';
 import { decide } from './filter';
@@ -44,14 +45,18 @@ export function activate(context: vscode.ExtensionContext): void {
   );
   const claude = new AgentBridge(claudeConfig(), notify, endpoint);
   const codex = new AgentBridge(codexConfig(), notify, endpoint);
-  const agents = { claude, codex };
+  const copilot = new AgentBridge(copilotConfig(), notify, endpoint);
+  const agents = { claude, codex, copilot };
   // Shows Connect or Disconnect in the Command Palette, whichever applies.
-  claude.onDidChange(() =>
-    vscode.commands.executeCommand('setContext', 'nightping.claudeHooks', claude.status().hooks),
-  );
-  codex.onDidChange(() =>
-    vscode.commands.executeCommand('setContext', 'nightping.codexHooks', codex.status().hooks),
-  );
+  for (const [agent, bridge] of Object.entries(agents)) {
+    bridge.onDidChange(() =>
+      vscode.commands.executeCommand(
+        'setContext',
+        `nightping.${agent}Hooks`,
+        bridge.status().hooks,
+      ),
+    );
+  }
   const services: Services = { secrets, sender, pauser, claude };
   const panel = {
     extensionUri: context.extensionUri,
@@ -61,6 +66,7 @@ export function activate(context: vscode.ExtensionContext): void {
     pauser,
     claude,
     codex,
+    copilot,
   };
 
   const status = new StatusBar();
@@ -76,8 +82,7 @@ export function activate(context: vscode.ExtensionContext): void {
     pauser,
     pauser.onDidChange(refresh),
     history.onDidChange(refresh),
-    claude,
-    codex,
+    ...Object.values(agents),
     watchSources(notify),
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration('nightping')) {
@@ -89,8 +94,7 @@ export function activate(context: vscode.ExtensionContext): void {
       if (!state.focused) return;
       pauser.refresh();
       // The agents' files may have changed while VS Code was in the background.
-      void claude.refresh();
-      void codex.refresh();
+      for (const bridge of Object.values(agents)) void bridge.refresh();
     }),
     vscode.commands.registerCommand('nightping.open', () => Panel.show(panel)),
     vscode.commands.registerCommand('nightping.setUp', () => setUp(services)),
@@ -110,6 +114,9 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('nightping.connectCodex', () => codex.connect()),
     vscode.commands.registerCommand('nightping.disconnectCodex', () => codex.disconnect()),
     vscode.commands.registerCommand('nightping.copyCodexSettings', () => codex.copySettings()),
+    vscode.commands.registerCommand('nightping.connectCopilot', () => copilot.connect()),
+    vscode.commands.registerCommand('nightping.disconnectCopilot', () => copilot.disconnect()),
+    vscode.commands.registerCommand('nightping.copyCopilotSettings', () => copilot.copySettings()),
     vscode.commands.registerCommand('nightping.openSettings', () =>
       vscode.commands.executeCommand(
         'workbench.action.openSettings',
@@ -120,8 +127,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // Also starts the timer of a pause left over from an earlier session.
   pauser.refresh();
   // Starts the endpoint when an agent's file has Nightping's hooks.
-  void claude.refresh();
-  void codex.refresh();
+  for (const bridge of Object.values(agents)) void bridge.refresh();
 }
 
 export function deactivate(): void {}

@@ -226,3 +226,21 @@ describe('Codex', () => {
     });
   });
 });
+
+describe('GitHub Copilot', () => {
+  it('is named Copilot, short enough for a phone', () => {
+    const finished: FinishedEvent = {
+      kind: 'copilot',
+      state: 'finished',
+      durationMs: 45_000,
+      folder: 'shop',
+      reply: undefined,
+      detail: undefined,
+    };
+    expect(formatEvent(english, finished, 'details', 'workspace')).toEqual({
+      title: 'Copilot · shop',
+      message: 'Finished · 45s',
+      tags: ['white_check_mark'],
+    });
+  });
+});

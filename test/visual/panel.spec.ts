@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { SOURCE_KINDS } from '../../src/shared/protocol';
 import { lowestTextContrast } from './contrast';
 import { notSetUp, openPanel, ready, strings } from './harness';
 import type { ThemeName } from './themes';
@@ -62,7 +63,7 @@ for (const theme of ['dark', 'light', 'hcDark', 'hcLight'] as ThemeName[]) {
       const panel = await openPanel(page, theme);
       await panel.init({ ...ready, terminals: { open: 1, reporting: 0 } });
 
-      for (const kind of ['task', 'terminal', 'notebook', 'debug', 'claude', 'codex'] as const) {
+      for (const kind of SOURCE_KINDS) {
         await expect(page.getByLabel(strings.sources[kind])).toBeChecked();
       }
       await expect(minimum(page)).toHaveValue('30');
@@ -118,6 +119,7 @@ for (const theme of ['dark', 'light', 'hcDark', 'hcLight'] as ThemeName[]) {
 const notifyCard = (page: Page) => page.getByRole('region', { name: strings.whenToNotify });
 const claudeCard = (page: Page) => page.getByRole('region', { name: strings.claude.title });
 const codexCard = (page: Page) => page.getByRole('region', { name: strings.codex.title });
+const copilotCard = (page: Page) => page.getByRole('region', { name: strings.copilot.title });
 const messageCard = (page: Page) => page.getByRole('region', { name: strings.message.title });
 const messageInput = (page: Page) => page.getByLabel(strings.message.label, { exact: true });
 const sendButton = (page: Page) =>
@@ -204,6 +206,34 @@ test('offers to connect Codex, and says to trust the hooks once', async ({ page 
     { type: 'disconnectAgent', agent: 'codex' },
   ]);
   await card.screenshot({ path: `${SCREENS}/codex-connected-dark.png` });
+  expect(panel.problems).toEqual([]);
+});
+
+test('offers to connect GitHub Copilot with a file of its own', async ({ page }) => {
+  const panel = await openPanel(page, 'dark');
+  await panel.init({ ...ready, copilot: notSetUp.copilot });
+  const card = copilotCard(page);
+  await expect(card.getByRole('status')).toHaveText(strings.copilot.state.disconnected);
+  await expect(card).toContainText('~/.copilot/hooks/nightping.json');
+  await expect(card.getByText(strings.copilot.receiving)).toBeHidden();
+  await expect(card.getByRole('button', { name: strings.copilot.disconnect })).toBeHidden();
+  await card.getByRole('button', { name: strings.copilot.connect }).click();
+  await card.getByRole('button', { name: strings.copilot.copy }).click();
+  await card.screenshot({ path: `${SCREENS}/copilot-dark.png` });
+
+  await panel.post({ type: 'state', state: ready });
+  await expect(card.getByRole('status')).toHaveText(strings.copilot.state.connected);
+  await expect(card).toContainText('trusted workspaces');
+  await expect(
+    card.getByText(strings.copilot.receivingState.listening.replace('{0}', '47391')),
+  ).toBeVisible();
+  await card.getByRole('button', { name: strings.copilot.disconnect }).click();
+  expect(await panel.sent()).toEqual([
+    { type: 'connectAgent', agent: 'copilot' },
+    { type: 'copyAgentSettings', agent: 'copilot' },
+    { type: 'disconnectAgent', agent: 'copilot' },
+  ]);
+  await card.screenshot({ path: `${SCREENS}/copilot-connected-dark.png` });
   expect(panel.problems).toEqual([]);
 });
 
@@ -295,6 +325,7 @@ test('follows the settings when they change elsewhere', async ({ page }) => {
           debug: false,
           claude: true,
           codex: true,
+          copilot: false,
         },
         minimumSeconds: 45,
         onlyWhenAway: false,

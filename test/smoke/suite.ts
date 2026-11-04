@@ -1,13 +1,15 @@
 // Runs inside a real VS Code instance (see scripts/smoke.mjs).
 import * as assert from 'node:assert/strict';
 import { existsSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { homedir, tmpdir } from 'node:os';
+import { basename, join } from 'node:path';
 import * as http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import * as vscode from 'vscode';
 import { spawn } from 'node:child_process';
 import { CLAUDE_HOOKS } from '../../src/extension/claude/settings';
 import { codexHooks } from '../../src/extension/codex/settings';
+import { copilotHooks } from '../../src/extension/copilot/settings';
 import { hookSettings } from '../../src/extension/hookFile';
 
 const EXTENSION_ID = 'MBKDevStudio.nightping';
@@ -428,7 +430,8 @@ const tests: Record<string, () => Promise<void>> = {
       await until(async () => (await status(port)) === 200);
 
       // Each event runs its hook's command in the shell Codex uses, with the JSON on stdin.
-      const [group] = settings.hooks.Stop as Array<{ hooks: Record<string, string>[] }>;
+      const hooks = settings.hooks as Record<string, Array<{ hooks: Record<string, string>[] }>>;
+      const [group] = hooks.Stop;
       const [{ command, commandWindows }] = group.hooks;
       const session = { session_id: 'smoke', turn_id: 't1', cwd: join(dir, 'shop') };
       const run = (payload: Record<string, unknown>) =>
@@ -452,6 +455,70 @@ const tests: Record<string, () => Promise<void>> = {
       });
       const approval = JSON.parse((await waitFor(() => ntfy.requests[1])).body) as Message;
       assert.equal(approval.message, 'Needs your approval\nRun the tests');
+      assert.equal(approval.priority, 4);
+    } finally {
+      // Without the hooks, the endpoint closes.
+      rmSync(file, { force: true });
+      await until(async () => (await status(port)) === undefined);
+      await reset();
+      await ntfy.close();
+    }
+  },
+
+  async 'runs GitHub Copilot hooks from its hooks folder, and notifies about its turns'() {
+    // scripts/smoke.mjs points the home folder at an empty one, never the developer's.
+    const home = homedir();
+    assert.ok(
+      home.startsWith(tmpdir()) && basename(home).startsWith('nightping-smoke-home-'),
+      `scripts/smoke.mjs moves the home folder (it is ${home})`,
+    );
+    const port = 47388;
+    const ntfy = await fakeNtfy();
+    const reset = await useSettings({
+      server: ntfy.server,
+      topic: 'smoke-test',
+      onlyWhenAway: false,
+      minimumDuration: 0,
+      content: 'details',
+    });
+    const file = join(home, '.copilot', 'hooks', 'nightping.json');
+    const windowsCurl = join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'curl.exe');
+    try {
+      // What Copy Settings gives, saved as the file: Nightping sees it and starts listening.
+      const settings = hookSettings(copilotHooks(windowsCurl), port);
+      writeFileSync(file, JSON.stringify(settings, null, 2));
+      await until(async () => (await status(port)) === 200);
+
+      // Each event runs its hook's command in the shell, with the JSON on stdin.
+      const hooks = settings.hooks as Record<string, Record<string, string>[]>;
+      const [{ bash, powershell }] = hooks.Stop;
+      const run = (payload: Record<string, unknown>) =>
+        runHook(process.platform === 'win32' ? powershell : bash, payload);
+      // As VS Code's agent mode sends them.
+      const session = {
+        timestamp: new Date().toISOString(),
+        session_id: 'smoke',
+        transcript_path: join(home, 'transcript.jsonl'),
+        cwd: join(home, 'shop'),
+      };
+      await run({ ...session, hook_event_name: 'UserPromptSubmit', prompt: 'Rename foo' });
+      await run({ ...session, hook_event_name: 'Stop', stop_hook_active: false });
+      const finished = JSON.parse((await waitFor(() => ntfy.requests[0])).body) as Message;
+      assert.equal(finished.title, 'Copilot · shop');
+      assert.match(finished.message, /^Finished · \d+s$/);
+
+      // As Copilot CLI sends a permission prompt.
+      await run({
+        sessionId: 'smoke-cli',
+        timestamp: Date.now(),
+        cwd: join(home, 'shop'),
+        hook_event_name: 'Notification',
+        notification_type: 'permission_prompt',
+        title: 'Permission needed',
+        message: 'Copilot wants to run npm test',
+      });
+      const approval = JSON.parse((await waitFor(() => ntfy.requests[1])).body) as Message;
+      assert.equal(approval.message, 'Needs your approval\nCopilot wants to run npm test');
       assert.equal(approval.priority, 4);
     } finally {
       // Without the hooks, the endpoint closes.

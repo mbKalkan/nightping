@@ -31,6 +31,7 @@ describe('readPrefs', () => {
         debug: true,
         claude: true,
         codex: true,
+        copilot: true,
       },
       minimumSeconds: 120,
       onlyWhenAway: false,

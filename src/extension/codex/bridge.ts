@@ -2,7 +2,7 @@
 import * as os from 'node:os';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
-import type { AgentConfig } from '../agentBridge';
+import { windowsCurl, type AgentConfig } from '../agentBridge';
 import { readCodexHook } from './payload';
 import { codexHooks } from './settings';
 
@@ -12,10 +12,6 @@ export function hooksFile(): string {
   const dir =
     configured && path.isAbsolute(configured) ? configured : path.join(os.homedir(), '.codex');
   return path.join(dir, 'hooks.json');
-}
-
-function windowsCurl(): string {
-  return path.win32.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'curl.exe');
 }
 
 export function codexConfig(): AgentConfig {

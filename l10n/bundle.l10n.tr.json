@@ -175,5 +175,19 @@
   "Get a notification when Codex finishes a turn or asks for your approval. Connect adds three hooks to {0} and keeps a copy of the file; then trust them once with /hooks in Codex. Copy Settings copies them, so that you can add them yourself.": "Codex yanıtını bitirince ya da onayınızı isteyince bildirim alın. Codex'i Bağla, {0} dosyasına üç hook ekler ve dosyanın bir kopyasını saklar; sonra Codex'te bir kez /hooks ile onlara güvenin. Ayarları Kopyala onları panoya kopyalar, kendiniz ekleyebilirsiniz.",
   "Connect Codex": "Codex'i Bağla",
   "Starts once Codex is connected.": "Codex bağlanınca başlar.",
-  "Only while VS Code is open. When it is closed, Codex goes on as usual.": "Yalnızca VS Code açıkken. Kapalıyken Codex her zamanki gibi çalışmaya devam eder."
+  "Only while VS Code is open. When it is closed, Codex goes on as usual.": "Yalnızca VS Code açıkken. Kapalıyken Codex her zamanki gibi çalışmaya devam eder.",
+  "Nightping deletes its own file, {0}. Other hooks and settings stay as they are.": "Nightping yalnızca kendisine ait {0} dosyasını siler. Diğer hook'lar ve ayarlar olduğu gibi kalır.",
+  "Copied the hooks. Save them as {0}.": "Hook'lar kopyalandı. Bunları {0} olarak kaydedin.",
+  "Connect GitHub Copilot to Nightping?": "GitHub Copilot Nightping'e bağlansın mı?",
+  "Nightping adds its own hooks file, {0}, which Copilot in VS Code and Copilot CLI both read. Its hooks send these events to Nightping on this computer only (port {1}): when you send a prompt, when Copilot finishes, and when Copilot CLI asks for your approval. Copilot waits for each hook, usually for less than half a second.": "Nightping yalnızca kendisine ait {0} dosyasını ekler; VS Code'daki Copilot da Copilot CLI de bu dosyayı okur. Dosyadaki hook'lar şu olayları yalnızca bu bilgisayardaki Nightping'e iletir (port {1}): bir istem gönderdiğinizde, Copilot yanıtını bitirdiğinde ve Copilot CLI onayınızı istediğinde. Copilot her hook'u bekler; bu genellikle yarım saniyeden kısa sürer.",
+  "GitHub Copilot is connected.": "GitHub Copilot bağlandı.",
+  "GitHub Copilot is not connected.": "GitHub Copilot bağlı değil.",
+  "Disconnect GitHub Copilot from Nightping?": "GitHub Copilot'un Nightping bağlantısı kaldırılsın mı?",
+  "GitHub Copilot finishes or needs you": "GitHub Copilot yanıtını bitirince ya da sizi bekleyince",
+  "GitHub Copilot": "GitHub Copilot",
+  "Copilot in VS Code and Copilot CLI tell Nightping on this computer when you send a prompt and when Copilot finishes; Copilot CLI also when it asks for your approval. VS Code runs the hooks in trusted workspaces only. Disconnect deletes {0}.": "VS Code'daki Copilot ve Copilot CLI, bir istem gönderdiğinizde ve Copilot yanıtını bitirdiğinde bu bilgisayardaki Nightping'e haber verir; Copilot CLI onayınızı istediğinde de. VS Code hook'ları yalnızca güvenilen çalışma alanlarında çalıştırır. Bağlantıyı Kaldır, {0} dosyasını siler.",
+  "Get a notification when GitHub Copilot finishes a turn, in VS Code (agent mode) or in Copilot CLI, and when Copilot CLI waits for your approval. Connect adds {0}, a hooks file only Nightping uses. Copy Settings copies it, so that you can add it yourself.": "GitHub Copilot, VS Code'da (ajan modunda) ya da Copilot CLI'de yanıtını bitirince ve Copilot CLI onayınızı beklerken bildirim alın. GitHub Copilot'u Bağla, yalnızca Nightping'in kullandığı {0} hook dosyasını ekler. Ayarları Kopyala bu dosyayı panoya kopyalar, kendiniz ekleyebilirsiniz.",
+  "Connect GitHub Copilot": "GitHub Copilot'u Bağla",
+  "Starts once GitHub Copilot is connected.": "GitHub Copilot bağlanınca başlar.",
+  "Only while VS Code is open. When it is closed, Copilot CLI goes on as usual.": "Yalnızca VS Code açıkken. Kapalıyken Copilot CLI her zamanki gibi çalışmaya devam eder."
 }

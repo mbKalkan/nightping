@@ -40,12 +40,21 @@ const folder = mkdtempSync(join(tmpdir(), 'nightping-smoke-folder-'));
 const claudeDir = mkdtempSync(join(tmpdir(), 'nightping-smoke-claude-'));
 // And Codex's, away from the developer's own ~/.codex.
 const codexDir = mkdtempSync(join(tmpdir(), 'nightping-smoke-codex-'));
+// And a home folder for Copilot's hooks folder, which is always under it. The hooks folder is
+// there from the start: on Linux VS Code's file watcher misses a file in a folder made later.
+const homeDir = mkdtempSync(join(tmpdir(), 'nightping-smoke-home-'));
+mkdirSync(join(homeDir, '.copilot', 'hooks'), { recursive: true });
 try {
   await runTests({
     version: process.env.VSCODE_VERSION ?? 'stable',
     extensionDevelopmentPath: root,
     extensionTestsPath: suite,
-    extensionTestsEnv: { CLAUDE_CONFIG_DIR: claudeDir, CODEX_HOME: codexDir },
+    extensionTestsEnv: {
+      CLAUDE_CONFIG_DIR: claudeDir,
+      CODEX_HOME: codexDir,
+      HOME: homeDir,
+      USERPROFILE: homeDir,
+    },
     launchArgs: [
       folder,
       '--disable-extensions',
@@ -56,7 +65,7 @@ try {
     ],
   });
 } finally {
-  for (const dir of [userData, folder, claudeDir, codexDir]) {
+  for (const dir of [userData, folder, claudeDir, codexDir, homeDir]) {
     rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 });
   }
 }

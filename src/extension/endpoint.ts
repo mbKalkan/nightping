@@ -8,6 +8,7 @@ import * as http from 'node:http';
 export const AGENT_PATHS = {
   claude: '/nightping/claude-code',
   codex: '/nightping/codex',
+  copilot: '/nightping/copilot',
 } as const;
 export type Agent = keyof typeof AGENT_PATHS;
 export const STATUS_PATH = '/nightping/status';

@@ -1,8 +1,5 @@
 // Codex's side: what its hooks send, the hooks Nightping writes to hooks.json, and the hook
 // command itself, run in the shells Codex uses against a real endpoint.
-import { spawn } from 'node:child_process';
-import * as http from 'node:http';
-import type { AddressInfo } from 'node:net';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { readCodexHook } from '../../src/extension/codex/payload';
@@ -14,6 +11,7 @@ import {
   hookSettings,
   hooksState,
 } from '../../src/extension/hookFile';
+import { freePort, runWithStdin, until } from './support';
 
 const CURL = path.win32.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'curl.exe');
 const spec = codexHooks(CURL);
@@ -185,36 +183,3 @@ describe('the hook command', () => {
     expect(stdout).toBe('');
   });
 });
-
-async function freePort(): Promise<number> {
-  const server = http.createServer();
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const { port } = server.address() as AddressInfo;
-  await new Promise((resolve) => server.close(resolve));
-  return port;
-}
-
-async function until(check: () => boolean, ms = 5000): Promise<void> {
-  const end = Date.now() + ms;
-  while (!check()) {
-    if (Date.now() > end) throw new Error('timed out');
-    await new Promise((resolve) => setTimeout(resolve, 20));
-  }
-}
-
-function runWithStdin(
-  file: string,
-  args: string[],
-  input: string,
-): Promise<{ code: number | null; stdout: string }> {
-  return new Promise((resolve, reject) => {
-    // As Rust's Command passes them: no extra quoting from Node on Windows.
-    const child = spawn(file, args, { windowsVerbatimArguments: file === 'cmd.exe' });
-    let stdout = '';
-    child.stdout.setEncoding('utf8');
-    child.stdout.on('data', (chunk: string) => (stdout += chunk));
-    child.on('error', reject);
-    child.on('close', (code) => resolve({ code, stdout }));
-    child.stdin.end(input, 'utf8');
-  });
-}

@@ -26,6 +26,11 @@ export interface AgentConfig {
   agent: AgentKind;
   /** The file Nightping writes the hooks to. Its folder exists when the agent is installed. */
   file(): string;
+  /**
+   * The file holds only Nightping's hooks (Copilot reads every file in its hooks folder):
+   * Connect writes it without a backup and Disconnect deletes it.
+   */
+  ownFile?: boolean;
   hooks: HookSpec;
   read(payload: unknown): HookEvent | undefined;
   texts: {
@@ -42,6 +47,11 @@ export interface AgentConfig {
 export function shown(file: string): string {
   const home = os.homedir();
   return file.startsWith(home + path.sep) ? `~${file.slice(home.length)}` : file;
+}
+
+/** Windows' own curl.exe, for command hooks that run in PowerShell (where `curl` is an alias). */
+export function windowsCurl(): string {
+  return path.win32.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'curl.exe');
 }
 
 export function currentPort(): number {
@@ -144,16 +154,22 @@ export class AgentBridge implements vscode.Disposable {
       this.config.texts.disconnectTitle,
       {
         modal: true,
-        detail: vscode.l10n.t(
-          'Nightping removes only its own hooks from {0}, after saving a copy as {1}. Other hooks and settings stay as they are.',
-          shown(file),
-          `${path.basename(file)}.nightping.bak`,
-        ),
+        detail: this.config.ownFile
+          ? vscode.l10n.t(
+              'Nightping deletes its own file, {0}. Other hooks and settings stay as they are.',
+              shown(file),
+            )
+          : vscode.l10n.t(
+              'Nightping removes only its own hooks from {0}, after saving a copy as {1}. Other hooks and settings stay as they are.',
+              shown(file),
+              `${path.basename(file)}.nightping.bak`,
+            ),
       },
       disconnect,
     );
     if (choice !== disconnect) return;
-    await this.rewrite(file, (text) => disconnectedText(this.config.hooks, text));
+    if (this.config.ownFile) await this.remove(file);
+    else await this.rewrite(file, (text) => disconnectedText(this.config.hooks, text));
   }
 
   /** Puts the hooks on the clipboard, for people who add them by hand or ask the agent to. */
@@ -161,8 +177,11 @@ export class AgentBridge implements vscode.Disposable {
     await vscode.env.clipboard.writeText(
       `${JSON.stringify(hookSettings(this.config.hooks, currentPort()), null, 2)}\n`,
     );
+    const file = shown(this.config.file());
     void vscode.window.showInformationMessage(
-      vscode.l10n.t('Copied the hooks. Add them under "hooks" in {0}.', shown(this.config.file())),
+      this.config.ownFile
+        ? vscode.l10n.t('Copied the hooks. Save them as {0}.', file)
+        : vscode.l10n.t('Copied the hooks. Add them under "hooks" in {0}.', file),
     );
   }
 
@@ -218,13 +237,25 @@ export class AgentBridge implements vscode.Disposable {
     }
     try {
       await fs.mkdir(path.dirname(file), { recursive: true });
-      if (text !== undefined) await fs.writeFile(`${file}.nightping.bak`, text, 'utf8');
+      if (text !== undefined && !this.config.ownFile) {
+        await fs.writeFile(`${file}.nightping.bak`, text, 'utf8');
+      }
       await fs.writeFile(file, next, 'utf8');
     } catch (error) {
       return this.failed(error);
     }
     await this.refresh();
     return true;
+  }
+
+  private async remove(file: string): Promise<void> {
+    try {
+      await fs.rm(file, { force: true });
+    } catch (error) {
+      this.failed(error);
+      return;
+    }
+    await this.refresh();
   }
 
   private failed(error: unknown): false {
