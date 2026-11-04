@@ -1,8 +1,8 @@
 // Runs inside a real VS Code instance (see scripts/smoke.mjs).
 import * as assert from 'node:assert/strict';
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
-import { basename, dirname, join } from 'node:path';
+import { basename, join } from 'node:path';
 import * as http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import * as vscode from 'vscode';
@@ -481,13 +481,11 @@ const tests: Record<string, () => Promise<void>> = {
       minimumDuration: 0,
       content: 'details',
     });
-    // The hooks folder does not exist yet, as for someone who never added a hook.
     const file = join(home, '.copilot', 'hooks', 'nightping.json');
     const windowsCurl = join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'curl.exe');
     try {
       // What Copy Settings gives, saved as the file: Nightping sees it and starts listening.
       const settings = hookSettings(copilotHooks(windowsCurl), port);
-      mkdirSync(dirname(file), { recursive: true });
       writeFileSync(file, JSON.stringify(settings, null, 2));
       await until(async () => (await status(port)) === 200);
 
