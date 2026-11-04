@@ -150,5 +150,19 @@
   "In this window, on port {0}.": "Bu pencere, port {0}.",
   "In another VS Code window, on port {0}.": "Başka bir VS Code penceresi, port {0}.",
   "Port {0} is used by another program. Choose another port in the settings, then reconnect.": "Port {0} başka bir program tarafından kullanılıyor. Ayarlardan başka bir port seçin, sonra yeniden bağlayın.",
-  "Only while VS Code is open. When it is closed, Claude Code goes on as usual.": "Yalnızca VS Code açıkken. Kapalıyken Claude Code her zamanki gibi çalışmaya devam eder."
+  "Only while VS Code is open. When it is closed, Claude Code goes on as usual.": "Yalnızca VS Code açıkken. Kapalıyken Claude Code her zamanki gibi çalışmaya devam eder.",
+  "Pass the message as text, or as an object with a \"message\".": "Mesajı metin olarak ya da \"message\" alanı olan bir nesne olarak verin.",
+  "\"message\" must be text that is not empty.": "\"message\" boş olmayan bir metin olmalı.",
+  "\"title\" must be text.": "\"title\" metin olmalı.",
+  "\"priority\" must be a whole number from 1 to 5.": "\"priority\" 1 ile 5 arasında bir tam sayı olmalı.",
+  "\"tags\" must be a list of up to 5 words, such as \"warning\" or \"tada\".": "\"tags\" en çok 5 kelimelik bir liste olmalı, ör. \"warning\" ya da \"tada\".",
+  "Send a Message": "Mesaj Gönder",
+  "Goes to your phone now, even while notifications are paused.": "Bildirimler duraklatılmış olsa bile hemen telefonunuza gider.",
+  "Message sent.": "Mesaj gönderildi.",
+  "Send a message": "Mesaj gönder",
+  "Message": "Mesaj",
+  "Type a message for your phone": "Telefonunuz için bir mesaj yazın",
+  "Goes to your phone now, even while notifications are paused. Key bindings and other extensions can send messages too, with the nightping.send command.": "Bildirimler duraklatılmış olsa bile hemen telefonunuza gider. Tuş atamaları ve başka eklentiler de nightping.send komutuyla mesaj gönderebilir.",
+  "Send": "Gönder",
+  "Sent at {0}.": "Gönderildi ({0})."
 }

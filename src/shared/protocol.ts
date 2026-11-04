@@ -68,6 +68,15 @@ export interface PanelStrings {
     receivingState: Record<ClaudeStatus['receiving'], string>;
     receivingHelp: string;
   };
+  message: {
+    title: string;
+    label: string;
+    placeholder: string;
+    help: string;
+    send: string;
+    /** `{0}` is the time. */
+    sentAt: string;
+  };
   recent: string;
   recentEmpty: string;
   recentNote: string;
@@ -79,6 +88,9 @@ export interface PanelStrings {
 }
 
 export type PanelStatus = 'ready' | 'incomplete' | 'invalid';
+
+/** Longer messages are cut: a phone shows a few lines, and ntfy turns 4 KB into a file. */
+export const MESSAGE_LIMIT = 1000;
 
 /** What can finish in VS Code and send a notification. */
 export type SourceKind = 'task' | 'terminal' | 'notebook' | 'debug' | 'claude';
@@ -164,13 +176,17 @@ export type HostToWebviewMessage =
   | { type: 'state'; state: PanelState }
   | { type: 'busy'; busy: boolean }
   | { type: 'saved' }
-  | { type: 'result'; time: number; error?: string };
+  | { type: 'result'; time: number; error?: string }
+  /** How the message typed in the panel went. */
+  | { type: 'messageResult'; time: number; error?: string };
 
 export type WebviewToHostMessage =
   | { type: 'ready' }
   /** An empty token keeps the saved one. With `test`, a test notification follows the save. */
   | { type: 'save'; server: string; topic: string; token: string; test: boolean }
   | { type: 'sendTest' }
+  /** A message the user typed; it goes out even while notifications are paused. */
+  | { type: 'send'; message: string }
   | { type: 'removeToken' }
   | { type: 'clearHistory' }
   | { type: 'openSettings' }

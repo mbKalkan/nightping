@@ -121,6 +121,16 @@ export function panelStrings(t: Translate): PanelStrings {
         'Only while VS Code is open. When it is closed, Claude Code goes on as usual.',
       ),
     },
+    message: {
+      title: t('Send a message'),
+      label: t('Message'),
+      placeholder: t('Type a message for your phone'),
+      help: t(
+        'Goes to your phone now, even while notifications are paused. Key bindings and other extensions can send messages too, with the nightping.send command.',
+      ),
+      send: t('Send'),
+      sentAt: t('Sent at {0}.', '{0}'),
+    },
     recent: t('Recent notifications'),
     recentEmpty: t('Nothing sent yet.'),
     recentNote: t('Kept on this computer only.'),
@@ -138,6 +148,13 @@ export function testMessage(t: Translate): Message {
     message: t('Notifications from VS Code will arrive like this.'),
     tags: ['bell'],
   };
+}
+
+/** Why nothing was sent while the server or topic is missing or wrong. */
+export function notReadyText(t: Translate, state: 'incomplete' | 'invalid'): string {
+  return state === 'incomplete'
+    ? t('Nightping is not set up yet.')
+    : t('The ntfy server or topic in the settings is not valid.');
 }
 
 /** Why a notification did not go out, in a sentence that names the next step. */

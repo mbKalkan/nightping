@@ -441,6 +441,19 @@ body.vscode-high-contrast .ng-button:hover:not(:disabled, .ng-link) {
   margin: 16px 0 0 136px;
 }
 
+.ng-message > .ng-field {
+  margin-bottom: 0;
+}
+
+/* Under the input; it takes no room until there is something to say. */
+.ng-message .ng-result {
+  margin: 0;
+}
+
+.ng-message .ng-result:not(:empty) {
+  margin-top: 4px;
+}
+
 /* One grid for the whole list, so time, text and outcome line up from row to row. */
 .ng-history {
   display: grid;

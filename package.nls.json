@@ -5,6 +5,7 @@
   "command.open": "Open",
   "command.setUp": "Set Up…",
   "command.sendTest": "Send Test Notification",
+  "command.send": "Send Message…",
   "command.pause": "Pause Notifications…",
   "command.resume": "Resume Notifications",
   "command.connectClaudeCode": "Connect Claude Code…",

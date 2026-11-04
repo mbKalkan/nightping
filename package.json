@@ -59,6 +59,11 @@
         "category": "%category%"
       },
       {
+        "command": "nightping.send",
+        "title": "%command.send%",
+        "category": "%category%"
+      },
+      {
         "command": "nightping.pause",
         "title": "%command.pause%",
         "category": "%category%"
