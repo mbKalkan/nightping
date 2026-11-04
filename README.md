@@ -20,6 +20,48 @@ Coming next: other AI agents (Codex, Copilot, Gemini CLI, Cursor and others thro
 
 A notification reads at a glance: the title says what finished, the message how it ended and how long it took, for example **❌ Task** / *Failed (exit 1) · 4m 12s*. Failures, questions and approval requests arrive at high priority.
 
+## Set up
+
+Nightping ships with **no server, no topic and no account**, and sends nothing until you enter your own. Pick one of the two ways below; both take a few minutes.
+
+### With ntfy.sh (free, nothing to install)
+
+1. Install the ntfy app on your phone: [Google Play](https://play.google.com/store/apps/details?id=io.heckel.ntfy), [F-Droid](https://f-droid.org/en/packages/io.heckel.ntfy/) or the [App Store](https://apps.apple.com/us/app/ntfy/id1625396347).
+2. In VS Code, click **Nightping** in the status bar to open the panel. Enter `https://ntfy.sh` as the server, keep the random topic Nightping suggests, leave the access token empty, and click **Save**.
+3. In the ntfy app, add a subscription to the same topic.
+4. Click **Send Test Notification**. It arrives on your phone within seconds.
+
+On ntfy.sh every topic is public: anyone who knows its name can read it and send to it, so the topic works like a password. Keep the random name, or choose one as hard to guess. Free use of ntfy.sh has [limits](https://docs.ntfy.sh/publish/#limitations), such as 250 messages a day.
+
+### With your own ntfy server
+
+1. [Install ntfy](https://docs.ntfy.sh/install/) where both your computer and your phone can reach it: at home, on a server you rent, or in a private network such as Tailscale. Nightping sends from the computer you work on, so an address that only works in your own network is fine.
+2. To keep the topic private, turn on [access control](https://docs.ntfy.sh/config/#access-control) (`auth-file` and `auth-default-access: "deny-all"` in `server.yml`). Then create a user that may only publish to your topic, and a token for it:
+
+   ```sh
+   ntfy user add nightping
+   ntfy access nightping my-topic write-only
+   ntfy token add nightping
+   ```
+
+   The token starts with `tk_`. It can do whatever its user can, which is why that user gets this one topic and nothing more.
+3. In the Nightping panel, enter your server (for example `https://ntfy.example.com`), the topic and the token, and click **Save**.
+4. In the ntfy app, add a subscription to the topic with **Use another server** and your server's address, or make it the **Default server** in the app's settings. For a protected topic, the app asks you to log in with a user that may read it.
+5. Click **Send Test Notification**.
+
+On an iPhone, notifications from your own server arrive at once only when the server forwards them through ntfy.sh: set `upstream-base-url: "https://ntfy.sh"` in `server.yml` ([iOS instant notifications](https://docs.ntfy.sh/config/#ios-instant-notifications)). ntfy.sh then sees only a message ID and a hash of the topic, never the message itself.
+
+### If it does not arrive
+
+The panel says why under the buttons: the server needs an access token or refused it, redirects to another address, cannot be reached, or does not answer within 10 seconds. **Recent notifications** keeps what Nightping sent, and the reason for anything that did not go out. The list stays on this computer.
+
+### Your server, your settings
+
+- Requests go only to the server you entered. There is no telemetry and no other network traffic.
+- By default a notification contains only the kind of event, the result and the duration. The workspace name, task names, command lines and file names are added only if you choose them under **Content**.
+- The server and topic are user settings, so Settings Sync takes them to your other computers. The token stays in VS Code's secret storage on each computer, never in the settings; enter it again on another computer in the panel or with **Nightping: Set Access Token…**.
+- Prefer the keyboard? **Nightping: Set Up…** asks for the server, topic and token in the Command Palette, and **Send Test Notification**, **Set Access Token…** and **Clear Access Token** are there too.
+
 ## Claude Code
 
 **Connect it with one click.** In the Nightping panel, click **Connect Claude Code** (or run **Nightping: Connect Claude Code…**). After you confirm, Nightping adds three HTTP hooks to Claude Code's user settings, `~/.claude/settings.json` (or the folder an absolute `CLAUDE_CONFIG_DIR` names): when you send a prompt, when Claude finishes, and when it needs you. It saves a copy of the file as `settings.json.nightping.bak` first and leaves your other settings and hooks as they are. **Disconnect** removes only Nightping's hooks. Claude Code picks the change up without a restart. When you set up Nightping with **Nightping: Set Up…** and Claude Code is on the computer, the test notification offers to connect it.
@@ -88,24 +130,6 @@ const result = await vscode.commands.executeCommand('nightping.send', {
 - `tags`: up to 5 [ntfy tags](https://docs.ntfy.sh/emojis/); emoji short codes such as `warning` or `tada` show as emojis.
 
 The command returns `{ "sent": true }`, or `{ "sent": false, "reason": … }` with `"paused"`, `"not-set-up"` or `"failed"` (with an `error` that says why). While notifications are paused, passed messages are held back; the **When to notify** conditions do not apply to them. Anything else it cannot send, such as a priority of 9, fails with an error that names the problem.
-
-## Your server, your settings
-
-Nightping ships with **no server, no topic and no account**. Nothing is sent until you enter your own:
-
-- the ntfy server URL (for example `https://ntfy.sh` or your self-hosted `https://ntfy.example.com`),
-- a topic,
-- an optional access token, stored in VS Code's secret storage.
-
-Requests go only to the server you entered. There is no telemetry and no other network traffic. By default a notification contains only the kind of event, the result and the duration; the workspace name, task names, command lines and file names are added only if you choose them under **Content**.
-
-Click the Nightping item in the status bar (or run **Nightping: Open**) to open the Nightping panel. Enter the server, a topic and an optional token, save, and send a test notification. If it does not arrive, the panel says why: a missing or refused token, a redirect, an unreachable server. Below the form, **Recent notifications** lists what Nightping sent, or tried to send and why it could not; the list stays on this computer.
-
-Prefer the keyboard? **Nightping: Set Up…** asks for the same three things in the Command Palette, and **Send Test Notification**, **Set Access Token…** and **Clear Access Token** are there too.
-
-The server and topic are user settings, so Settings Sync takes them to your other computers. The token stays in the secret storage of each computer; set it again there in the panel or with **Nightping: Set Access Token…**.
-
-The README will include a step-by-step guide for both ntfy.sh and a self-hosted server before the first release.
 
 ## License
 
