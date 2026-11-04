@@ -9,8 +9,11 @@ import {
   setUp,
   type Services,
 } from './commands';
-import { ClaudeBridge } from './claude/bridge';
+import { AgentBridge } from './agentBridge';
+import { claudeConfig } from './claude/bridge';
+import { codexConfig } from './codex/bridge';
 import type { FinishedEvent } from './events';
+import { Endpoint } from './endpoint';
 import { decide } from './filter';
 import { formatEvent } from './format';
 import { History } from './history';
@@ -25,20 +28,40 @@ export function activate(context: vscode.ExtensionContext): void {
   const history = new History(context.globalState);
   const sender = new Sender(secrets, history);
   const pauser = new Pauser(context.globalState);
-  // VS Code's runs and Claude Code's turns go through the same filter and format.
+  // VS Code's runs and the agents' turns go through the same filter and format.
   const notify = (event: FinishedEvent) => {
     const prefs = currentPrefs();
     const paused = pauser.current() !== undefined;
     if (decide(event, prefs, vscode.window.state, paused) !== 'send') return;
     void sender.send(formatEvent(vscode.l10n.t, event, prefs.content, vscode.workspace.name));
   };
-  const claude = new ClaudeBridge(notify);
+  // One endpoint for every agent's hooks; each agent posts to its own path.
+  const endpoint = new Endpoint(
+    (agent, payload) => agents[agent].receive(payload),
+    () => {
+      for (const bridge of Object.values(agents)) bridge.changed();
+    },
+  );
+  const claude = new AgentBridge(claudeConfig(), notify, endpoint);
+  const codex = new AgentBridge(codexConfig(), notify, endpoint);
+  const agents = { claude, codex };
   // Shows Connect or Disconnect in the Command Palette, whichever applies.
   claude.onDidChange(() =>
     vscode.commands.executeCommand('setContext', 'nightping.claudeHooks', claude.status().hooks),
   );
+  codex.onDidChange(() =>
+    vscode.commands.executeCommand('setContext', 'nightping.codexHooks', codex.status().hooks),
+  );
   const services: Services = { secrets, sender, pauser, claude };
-  const panel = { extensionUri: context.extensionUri, secrets, history, sender, pauser, claude };
+  const panel = {
+    extensionUri: context.extensionUri,
+    secrets,
+    history,
+    sender,
+    pauser,
+    claude,
+    codex,
+  };
 
   const status = new StatusBar();
   const refresh = () => {
@@ -54,6 +77,7 @@ export function activate(context: vscode.ExtensionContext): void {
     pauser.onDidChange(refresh),
     history.onDidChange(refresh),
     claude,
+    codex,
     watchSources(notify),
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration('nightping')) {
@@ -64,8 +88,9 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.window.onDidChangeWindowState((state) => {
       if (!state.focused) return;
       pauser.refresh();
-      // The settings file may have changed while VS Code was in the background.
+      // The agents' files may have changed while VS Code was in the background.
       void claude.refresh();
+      void codex.refresh();
     }),
     vscode.commands.registerCommand('nightping.open', () => Panel.show(panel)),
     vscode.commands.registerCommand('nightping.setUp', () => setUp(services)),
@@ -82,6 +107,9 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('nightping.copyClaudeCodeSettings', () =>
       claude.copySettings(),
     ),
+    vscode.commands.registerCommand('nightping.connectCodex', () => codex.connect()),
+    vscode.commands.registerCommand('nightping.disconnectCodex', () => codex.disconnect()),
+    vscode.commands.registerCommand('nightping.copyCodexSettings', () => codex.copySettings()),
     vscode.commands.registerCommand('nightping.openSettings', () =>
       vscode.commands.executeCommand(
         'workbench.action.openSettings',
@@ -91,8 +119,9 @@ export function activate(context: vscode.ExtensionContext): void {
   );
   // Also starts the timer of a pause left over from an earlier session.
   pauser.refresh();
-  // Starts the endpoint when Claude Code's settings have Nightping's hooks.
+  // Starts the endpoint when an agent's file has Nightping's hooks.
   void claude.refresh();
+  void codex.refresh();
 }
 
 export function deactivate(): void {}

@@ -1,13 +1,16 @@
-// The endpoint on a real socket, as Claude Code's HTTP hooks reach it.
+// The endpoint on a real socket, as agents' hooks reach it.
 import * as http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   Endpoint,
-  HOOK_PATH,
+  AGENT_PATHS,
   STATUS_PATH,
+  type Agent,
   type EndpointState,
-} from '../../src/extension/claude/endpoint';
+} from '../../src/extension/endpoint';
+
+const HOOK_PATH = AGENT_PATHS.claude;
 
 const running: Endpoint[] = [];
 afterEach(() => {
@@ -25,14 +28,18 @@ async function freePort(): Promise<number> {
 
 async function start(retryMs = 50) {
   const payloads: unknown[] = [];
+  const agents: Agent[] = [];
   const states: EndpointState[] = [];
   const endpoint = new Endpoint(
-    (payload) => payloads.push(payload),
+    (agent, payload) => {
+      agents.push(agent);
+      payloads.push(payload);
+    },
     (state) => states.push(state),
     retryMs,
   );
   running.push(endpoint);
-  return { endpoint, payloads, states };
+  return { endpoint, payloads, agents, states };
 }
 
 async function until(check: () => boolean, ms = 3000): Promise<void> {
@@ -84,6 +91,29 @@ describe('Endpoint', () => {
     });
     expect(answer).toEqual({ status: 204, body: '' });
     expect(payloads).toEqual([{ hook_event_name: 'Stop' }]);
+  });
+
+  it('tells which agent posted, by its path', async () => {
+    const port = await freePort();
+    const { endpoint, agents } = await start();
+    endpoint.start(port);
+    await until(() => endpoint.state.kind === 'listening');
+    const json = { type: 'application/json', body: '{}' };
+    expect((await send(port, { ...json, path: AGENT_PATHS.codex })).status).toBe(204);
+    expect((await send(port, { ...json, path: AGENT_PATHS.claude })).status).toBe(204);
+    expect(agents).toEqual(['codex', 'claude']);
+  });
+
+  it('listens while at least one agent is connected', async () => {
+    const port = await freePort();
+    const { endpoint } = await start();
+    endpoint.need('claude', port);
+    endpoint.need('codex', port);
+    await until(() => endpoint.state.kind === 'listening');
+    endpoint.need('claude', undefined);
+    expect(endpoint.state.kind).toBe('listening');
+    endpoint.need('codex', undefined);
+    expect(endpoint.state.kind).toBe('off');
   });
 
   it('refuses what Claude Code does not send', async () => {

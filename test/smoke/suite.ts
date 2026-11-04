@@ -5,7 +5,10 @@ import { join } from 'node:path';
 import * as http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import * as vscode from 'vscode';
-import { hookSettings } from '../../src/extension/claude/settings';
+import { spawn } from 'node:child_process';
+import { CLAUDE_HOOKS } from '../../src/extension/claude/settings';
+import { codexHooks } from '../../src/extension/codex/settings';
+import { hookSettings } from '../../src/extension/hookFile';
 
 const EXTENSION_ID = 'MBKDevStudio.nightping';
 
@@ -44,6 +47,9 @@ const tests: Record<string, () => Promise<void>> = {
       'nightping.connectClaudeCode',
       'nightping.disconnectClaudeCode',
       'nightping.copyClaudeCodeSettings',
+      'nightping.connectCodex',
+      'nightping.disconnectCodex',
+      'nightping.copyCodexSettings',
       'nightping.openSettings',
     ]) {
       assert.ok(commands.includes(command), command);
@@ -364,7 +370,7 @@ const tests: Record<string, () => Promise<void>> = {
     const file = join(dir, 'settings.json');
     try {
       // What Copy Settings gives, pasted in: Nightping sees the file and starts listening.
-      writeFileSync(file, JSON.stringify(hookSettings(port), null, 2));
+      writeFileSync(file, JSON.stringify(hookSettings(CLAUDE_HOOKS, port), null, 2));
       await until(async () => (await status(port)) === 200);
 
       const session = { session_id: 'smoke', cwd: join(dir, 'my-app') };
@@ -400,6 +406,62 @@ const tests: Record<string, () => Promise<void>> = {
     }
   },
 
+  async 'runs Codex hooks added by hand through the shell, and notifies about its turns'() {
+    // scripts/smoke.mjs points CODEX_HOME at an empty folder.
+    const dir = process.env.CODEX_HOME;
+    assert.ok(dir, 'scripts/smoke.mjs sets CODEX_HOME');
+    const port = 47388;
+    const ntfy = await fakeNtfy();
+    const reset = await useSettings({
+      server: ntfy.server,
+      topic: 'smoke-test',
+      onlyWhenAway: false,
+      minimumDuration: 0,
+      content: 'details',
+    });
+    const file = join(dir, 'hooks.json');
+    const windowsCurl = join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'curl.exe');
+    try {
+      // What Copy Settings gives, pasted in: Nightping sees the file and starts listening.
+      const settings = hookSettings(codexHooks(windowsCurl), port);
+      writeFileSync(file, JSON.stringify(settings, null, 2));
+      await until(async () => (await status(port)) === 200);
+
+      // Each event runs its hook's command in the shell Codex uses, with the JSON on stdin.
+      const [group] = settings.hooks.Stop as Array<{ hooks: Record<string, string>[] }>;
+      const [{ command, commandWindows }] = group.hooks;
+      const session = { session_id: 'smoke', turn_id: 't1', cwd: join(dir, 'shop') };
+      const run = (payload: Record<string, unknown>) =>
+        runHook(process.platform === 'win32' ? commandWindows : command, payload);
+      await run({ ...session, hook_event_name: 'UserPromptSubmit', prompt: 'Rename foo' });
+      await run({
+        ...session,
+        hook_event_name: 'Stop',
+        stop_hook_active: false,
+        last_assistant_message: 'Renamed foo to bar. Tests pass.',
+      });
+      const finished = JSON.parse((await waitFor(() => ntfy.requests[0])).body) as Message;
+      assert.equal(finished.title, 'Codex · shop');
+      assert.match(finished.message, /^Finished · \d+s\nRenamed foo to bar\.$/);
+
+      await run({
+        ...session,
+        hook_event_name: 'PermissionRequest',
+        tool_name: 'Bash',
+        tool_input: { command: 'npm test', description: 'Run the tests' },
+      });
+      const approval = JSON.parse((await waitFor(() => ntfy.requests[1])).body) as Message;
+      assert.equal(approval.message, 'Needs your approval\nRun the tests');
+      assert.equal(approval.priority, 4);
+    } finally {
+      // Without the hooks, the endpoint closes.
+      rmSync(file, { force: true });
+      await until(async () => (await status(port)) === undefined);
+      await reset();
+      await ntfy.close();
+    }
+  },
+
   async 'keeps a short successful task quiet'() {
     const ntfy = await fakeNtfy();
     const reset = await useSettings({
@@ -422,6 +484,22 @@ interface Message {
   title: string;
   message: string;
   priority?: number;
+}
+
+/** Runs a Codex command hook as Codex does: in the session's shell, the payload on stdin. */
+function runHook(command: string, payload: Record<string, unknown>): Promise<void> {
+  const [file, args] =
+    process.platform === 'win32'
+      ? ['powershell.exe', ['-NoProfile', '-Command', command]]
+      : ['/bin/sh', ['-c', command]];
+  return new Promise((resolve, reject) => {
+    const child = spawn(file, args);
+    child.on('error', reject);
+    child.on('close', (code) =>
+      code === 0 ? resolve() : reject(new Error(`hook exited with ${code}`)),
+    );
+    child.stdin.end(JSON.stringify(payload), 'utf8');
+  });
 }
 
 /** Posts a hook payload the way Claude Code does. */

@@ -7,7 +7,7 @@ import {
   suggestTopic,
 } from '../shared/destination';
 import type { HostToWebviewMessage, PanelState, PanelStrings, SentEntry } from '../shared/protocol';
-import { ClaudeCard } from './claude';
+import { AgentCard } from './agent';
 import { button, element } from './dom';
 import { Field } from './field';
 import { MessageCard } from './message';
@@ -30,7 +30,8 @@ class PanelView {
   private readonly empty = element('p', 'ng-empty');
   private readonly clear: HTMLButtonElement;
   private readonly notify: NotifyCard;
-  private readonly claude: ClaudeCard;
+  private readonly claude: AgentCard;
+  private readonly codex: AgentCard;
   private readonly message: MessageCard;
   private readonly time: Intl.DateTimeFormat;
   private readonly dateTime: Intl.DateTimeFormat;
@@ -92,9 +93,13 @@ class PanelView {
     const destination = this.card(strings.destination);
     destination.append(form);
 
-    this.claude = new ClaudeCard(strings.claude);
+    this.claude = new AgentCard('claude', strings.claude);
     const claude = this.card(strings.claude.title);
     claude.append(this.claude.element);
+
+    this.codex = new AgentCard('codex', strings.codex);
+    const codex = this.card(strings.codex.title);
+    codex.append(this.codex.element);
 
     this.notify = new NotifyCard(strings, locale);
     const notify = this.card(strings.whenToNotify);
@@ -115,7 +120,7 @@ class PanelView {
     const settings = button(strings.allSettings, 'link');
     footer.append(element('p', 'ng-privacy', strings.privacy), settings);
 
-    main.append(header, destination, claude, notify, message, recent, footer);
+    main.append(header, destination, claude, codex, notify, message, recent, footer);
     app.replaceChildren(main);
 
     for (const field of [this.server, this.topic, this.token]) {
@@ -165,6 +170,7 @@ class PanelView {
       : this.strings.tokenPlaceholder;
     this.removeToken.hidden = !state.hasToken;
     this.claude.show(state.claude);
+    this.codex.show(state.codex);
     this.notify.show(state);
     this.message.show(state);
     this.renderHistory(state.history);

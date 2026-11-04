@@ -164,5 +164,16 @@
   "Type a message for your phone": "Telefonunuz için bir mesaj yazın",
   "Goes to your phone now, even while notifications are paused. Key bindings and other extensions can send messages too, with the nightping.send command.": "Bildirimler duraklatılmış olsa bile hemen telefonunuza gider. Klavye kısayolları ve başka eklentiler de nightping.send komutuyla mesaj gönderebilir.",
   "Send": "Gönder",
-  "Sent at {0}.": "Gönderildi ({0})."
+  "Sent at {0}.": "Gönderildi ({0}).",
+  "Connect Codex to Nightping?": "Codex Nightping'e bağlansın mı?",
+  "Nightping adds three hooks to {0}: when you send a prompt, when Codex finishes, and when it asks for your approval. They send these events to Nightping on this computer only (port {1}) and Codex does not wait for them. A copy of the file is saved first as {2}. Codex runs new hooks only after you trust them: run /hooks in Codex once.": "Nightping {0} dosyasına üç hook ekler: bir istem gönderdiğinizde, Codex yanıtını bitirdiğinde ve onayınızı istediğinde. Hook'lar bu olayları yalnızca bu bilgisayardaki Nightping'e iletir (port {1}) ve Codex onları beklemez. Önce dosyanın bir kopyası {2} olarak kaydedilir. Codex yeni hook'ları ancak siz onlara güvendikten sonra çalıştırır: Codex'te bir kez /hooks komutunu çalıştırın.",
+  "Codex is connected. Run /hooks in Codex once and trust the Nightping hooks; until then Codex does not run them.": "Codex bağlandı. Codex'te bir kez /hooks komutunu çalıştırıp Nightping hook'larına güvenin; o zamana kadar Codex onları çalıştırmaz.",
+  "Codex is not connected.": "Codex bağlı değil.",
+  "Disconnect Codex from Nightping?": "Codex'in Nightping bağlantısı kaldırılsın mı?",
+  "Codex finishes or needs you": "Codex yanıtını bitirince ya da sizi bekleyince",
+  "Codex tells Nightping on this computer when you send a prompt, when it finishes and when it asks for your approval. Codex runs new hooks only after you trust them once with /hooks. Disconnect removes only these hooks from {0}.": "Codex, bir istem gönderdiğinizde, yanıtını bitirdiğinde ve onayınızı istediğinde bu bilgisayardaki Nightping'e haber verir. Codex yeni hook'ları ancak siz onlara bir kez /hooks ile güvendikten sonra çalıştırır. Bağlantıyı Kaldır, {0} dosyasından yalnızca bu hook'ları çıkarır.",
+  "Get a notification when Codex finishes a turn or asks for your approval. Connect adds three hooks to {0} and keeps a copy of the file; then trust them once with /hooks in Codex. Copy Settings copies them, so that you can add them yourself.": "Codex yanıtını bitirince ya da onayınızı isteyince bildirim alın. Codex'i Bağla, {0} dosyasına üç hook ekler ve dosyanın bir kopyasını saklar; sonra Codex'te bir kez /hooks ile onlara güvenin. Ayarları Kopyala onları panoya kopyalar, kendiniz ekleyebilirsiniz.",
+  "Connect Codex": "Codex'i Bağla",
+  "Starts once Codex is connected.": "Codex bağlanınca başlar.",
+  "Only while VS Code is open. When it is closed, Codex goes on as usual.": "Yalnızca VS Code açıkken. Kapalıyken Codex her zamanki gibi çalışmaya devam eder."
 }

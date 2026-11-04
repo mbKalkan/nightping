@@ -147,6 +147,13 @@ export const notSetUp: PanelState = {
     receiving: 'off',
     port: 47391,
   },
+  codex: {
+    hooks: 'disconnected',
+    found: true,
+    file: '~/.codex/hooks.json',
+    receiving: 'off',
+    port: 47391,
+  },
 };
 
 const NOW = Date.now();
@@ -164,6 +171,13 @@ export const ready: PanelState = {
     hooks: 'connected',
     found: true,
     file: '~/.claude/settings.json',
+    receiving: 'listening',
+    port: 47391,
+  },
+  codex: {
+    hooks: 'disconnected',
+    found: true,
+    file: '~/.codex/hooks.json',
     receiving: 'listening',
     port: 47391,
   },

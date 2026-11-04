@@ -62,7 +62,7 @@ for (const theme of ['dark', 'light', 'hcDark', 'hcLight'] as ThemeName[]) {
       const panel = await openPanel(page, theme);
       await panel.init({ ...ready, terminals: { open: 1, reporting: 0 } });
 
-      for (const kind of ['task', 'terminal', 'notebook', 'debug', 'claude'] as const) {
+      for (const kind of ['task', 'terminal', 'notebook', 'debug', 'claude', 'codex'] as const) {
         await expect(page.getByLabel(strings.sources[kind])).toBeChecked();
       }
       await expect(minimum(page)).toHaveValue('30');
@@ -117,6 +117,7 @@ for (const theme of ['dark', 'light', 'hcDark', 'hcLight'] as ThemeName[]) {
 
 const notifyCard = (page: Page) => page.getByRole('region', { name: strings.whenToNotify });
 const claudeCard = (page: Page) => page.getByRole('region', { name: strings.claude.title });
+const codexCard = (page: Page) => page.getByRole('region', { name: strings.codex.title });
 const messageCard = (page: Page) => page.getByRole('region', { name: strings.message.title });
 const messageInput = (page: Page) => page.getByLabel(strings.message.label, { exact: true });
 const sendButton = (page: Page) =>
@@ -168,10 +169,42 @@ test('connects, disconnects and copies the Claude Code hooks', async ({ page }) 
   await expect(card.getByText('In this window, on port 47391.')).toBeVisible();
   await card.getByRole('button', { name: strings.claude.disconnect }).click();
   expect(await panel.sent()).toEqual([
-    { type: 'connectClaude' },
-    { type: 'copyClaudeSettings' },
-    { type: 'disconnectClaude' },
+    { type: 'connectAgent', agent: 'claude' },
+    { type: 'copyAgentSettings', agent: 'claude' },
+    { type: 'disconnectAgent', agent: 'claude' },
   ]);
+});
+
+test('offers to connect Codex, and says to trust the hooks once', async ({ page }) => {
+  const panel = await openPanel(page, 'dark');
+  // Claude Code is connected, so the endpoint runs; Codex is not.
+  await panel.init(ready);
+  const card = codexCard(page);
+  await expect(card.getByRole('status')).toHaveText(strings.codex.state.disconnected);
+  await expect(card).toContainText('~/.codex/hooks.json');
+  await expect(card).toContainText('/hooks');
+  await expect(card.getByText(strings.codex.receiving)).toBeHidden();
+  await expect(card.getByRole('button', { name: strings.codex.disconnect })).toBeHidden();
+  await card.getByRole('button', { name: strings.codex.connect }).click();
+  await card.getByRole('button', { name: strings.codex.copy }).click();
+  await card.screenshot({ path: `${SCREENS}/codex-dark.png` });
+
+  await panel.post({
+    type: 'state',
+    state: { ...ready, codex: { ...ready.codex, hooks: 'connected' } },
+  });
+  await expect(card.getByRole('status')).toHaveText(strings.codex.state.connected);
+  await expect(
+    card.getByText(strings.codex.receivingState.listening.replace('{0}', '47391')),
+  ).toBeVisible();
+  await card.getByRole('button', { name: strings.codex.disconnect }).click();
+  expect(await panel.sent()).toEqual([
+    { type: 'connectAgent', agent: 'codex' },
+    { type: 'copyAgentSettings', agent: 'codex' },
+    { type: 'disconnectAgent', agent: 'codex' },
+  ]);
+  await card.screenshot({ path: `${SCREENS}/codex-connected-dark.png` });
+  expect(panel.problems).toEqual([]);
 });
 
 test('shows what is wrong with the Claude Code hooks, and the way out', async ({ page }) => {
@@ -255,7 +288,14 @@ test('follows the settings when they change elsewhere', async ({ page }) => {
     state: {
       ...ready,
       prefs: {
-        sources: { task: false, terminal: true, notebook: true, debug: false, claude: true },
+        sources: {
+          task: false,
+          terminal: true,
+          notebook: true,
+          debug: false,
+          claude: true,
+          codex: true,
+        },
         minimumSeconds: 45,
         onlyWhenAway: false,
         content: 'folder',

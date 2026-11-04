@@ -6,6 +6,38 @@ import type { Message, PublishResult } from './ntfy';
 export type Translate = (message: string, ...args: Array<string | number>) => string;
 
 export function panelStrings(t: Translate): PanelStrings {
+  // What every agent's card says the same way.
+  const agent = {
+    hooks: t('Hooks'),
+    state: {
+      connected: t('Connected'),
+      outdated: t('Needs an update'),
+      disconnected: t('Not connected'),
+      invalid: t('Settings file is not valid JSON'),
+    },
+    help: {
+      outdated: t(
+        'The Nightping hooks in {0} are incomplete or use another port. Reconnect to fix them.',
+        '{0}',
+      ),
+      invalid: t(
+        '{0} is not valid JSON, so Nightping does not change it. Fix it, or add the hooks yourself with Copy Settings.',
+        '{0}',
+      ),
+    },
+    reconnect: t('Reconnect'),
+    disconnect: t('Disconnect'),
+    copy: t('Copy Settings'),
+    receiving: t('Receiving'),
+    receivingState: {
+      listening: t('In this window, on port {0}.', '{0}'),
+      'other-window': t('In another VS Code window, on port {0}.', '{0}'),
+      'other-program': t(
+        'Port {0} is used by another program. Choose another port in the settings, then reconnect.',
+        '{0}',
+      ),
+    },
+  };
   return {
     title: 'Nightping',
     tagline: t('Phone notifications through your own ntfy server.'),
@@ -51,6 +83,7 @@ export function panelStrings(t: Translate): PanelStrings {
       notebook: t('Notebook cells finish'),
       debug: t('Debug sessions end'),
       claude: t('Claude Code finishes or needs you'),
+      codex: t('Codex finishes or needs you'),
     },
     terminalHelp: t('Works in terminals with shell integration.'),
     terminalNone: t(
@@ -77,49 +110,42 @@ export function panelStrings(t: Translate): PanelStrings {
     previewHelp: t('A failed build task, as your phone shows it.'),
     appliesNow: t('Changes here apply right away.'),
     claude: {
+      ...agent,
       title: t('Claude Code'),
-      hooks: t('Hooks'),
-      state: {
-        connected: t('Connected'),
-        outdated: t('Needs an update'),
-        disconnected: t('Not connected'),
-        invalid: t('Settings file is not valid JSON'),
-      },
       help: {
+        ...agent.help,
         connected: t(
           'Claude Code tells Nightping on this computer when you send a prompt, when it finishes and when it needs you. Disconnect removes only these hooks from {0}.',
-          '{0}',
-        ),
-        outdated: t(
-          'The Nightping hooks in {0} are incomplete or use another port. Reconnect to fix them.',
           '{0}',
         ),
         disconnected: t(
           'Get a notification when Claude Code finishes a turn, asks you something or waits for your approval, in a terminal or in VS Code. Connect adds three hooks to {0} and keeps a copy of the file. Copy Settings copies them, so that you can add them yourself or ask Claude Code to.',
           '{0}',
         ),
-        invalid: t(
-          '{0} is not valid JSON, so Nightping does not change it. Fix it, or add the hooks yourself with Copy Settings.',
-          '{0}',
-        ),
       },
       connect: t('Connect Claude Code'),
-      reconnect: t('Reconnect'),
-      disconnect: t('Disconnect'),
-      copy: t('Copy Settings'),
-      receiving: t('Receiving'),
-      receivingState: {
-        off: t('Starts once Claude Code is connected.'),
-        listening: t('In this window, on port {0}.', '{0}'),
-        'other-window': t('In another VS Code window, on port {0}.', '{0}'),
-        'other-program': t(
-          'Port {0} is used by another program. Choose another port in the settings, then reconnect.',
-          '{0}',
-        ),
-      },
+      receivingState: { ...agent.receivingState, off: t('Starts once Claude Code is connected.') },
       receivingHelp: t(
         'Only while VS Code is open. When it is closed, Claude Code goes on as usual.',
       ),
+    },
+    codex: {
+      ...agent,
+      title: 'Codex',
+      help: {
+        ...agent.help,
+        connected: t(
+          'Codex tells Nightping on this computer when you send a prompt, when it finishes and when it asks for your approval. Codex runs new hooks only after you trust them once with /hooks. Disconnect removes only these hooks from {0}.',
+          '{0}',
+        ),
+        disconnected: t(
+          'Get a notification when Codex finishes a turn or asks for your approval. Connect adds three hooks to {0} and keeps a copy of the file; then trust them once with /hooks in Codex. Copy Settings copies them, so that you can add them yourself.',
+          '{0}',
+        ),
+      },
+      connect: t('Connect Codex'),
+      receivingState: { ...agent.receivingState, off: t('Starts once Codex is connected.') },
+      receivingHelp: t('Only while VS Code is open. When it is closed, Codex goes on as usual.'),
     },
     message: {
       title: t('Send a message'),

@@ -1,7 +1,7 @@
 // Turns a finished run into the notification the phone shows: the title says what and where,
 // the message says how it ended and how long it took. Pure: `t` is VS Code's `l10n.t` or a stub.
 import type { ContentLevel, NotificationPreview } from '../shared/protocol';
-import { outcomeOf, type FinishedEvent } from './events';
+import { AGENT_NAMES, isAgent, outcomeOf, type FinishedEvent } from './events';
 import type { Message } from './ntfy';
 import type { Translate } from './texts';
 
@@ -29,7 +29,7 @@ export function formatEvent(
   workspace: string | undefined,
 ): Message {
   // An agent says where it works; VS Code's own runs are in this window's workspace.
-  const place = event.kind === 'claude' ? (event.folder ?? workspace) : workspace;
+  const place = isAgent(event) ? (event.folder ?? workspace) : workspace;
   const where = level !== 'result' && place ? place.trim() : '';
   const title = [what(t, event, level), where].filter((part) => part !== '').join(SEPARATOR);
   const duration = event.durationMs === undefined ? '' : formatDuration(t, event.durationMs);
@@ -43,20 +43,20 @@ function look(event: FinishedEvent): Pick<Message, 'tags' | 'priority'> {
     case 'failed':
       return { tags: ['x'], priority: 4 };
     case 'needs-you':
-      return event.kind === 'claude' && event.state === 'question'
+      return isAgent(event) && event.state === 'question'
         ? { tags: ['question'], priority: 4 }
         : { tags: ['warning'], priority: 4 };
     case 'succeeded':
       return { tags: ['white_check_mark'] };
     case 'finished':
       // An agent's turn ends as planned; VS Code does not say how other runs ended.
-      return { tags: [event.kind === 'claude' ? 'white_check_mark' : 'checkered_flag'] };
+      return { tags: [isAgent(event) ? 'white_check_mark' : 'checkered_flag'] };
   }
 }
 
 /** The first sentence of the reply, or what the agent waits for; nothing for a question. */
 function agentDetail(event: FinishedEvent): string {
-  if (event.kind !== 'claude') return '';
+  if (!isAgent(event)) return '';
   if (event.state === 'finished') return firstSentence(event.reply ?? '');
   return event.state === 'approval' ? cut(oneLine(event.detail ?? ''), SUMMARY_LIMIT) : '';
 }
@@ -101,7 +101,7 @@ export function formatDuration(t: Translate, ms: number): string {
 }
 
 function what(t: Translate, event: FinishedEvent, level: ContentLevel): string {
-  if (event.kind === 'claude') return t('Claude Code');
+  if (isAgent(event)) return AGENT_NAMES[event.kind];
   if (level === 'details') {
     switch (event.kind) {
       case 'task':
@@ -138,7 +138,7 @@ function result(t: Translate, event: FinishedEvent): string {
     case 'finished':
       return event.kind === 'debug' ? t('Ended') : t('Finished');
     case 'needs-you':
-      return event.kind === 'claude' && event.state === 'question'
+      return isAgent(event) && event.state === 'question'
         ? t('Has a question for you')
         : t('Needs your approval');
   }
