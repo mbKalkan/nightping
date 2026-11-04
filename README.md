@@ -14,9 +14,10 @@ Phone push notifications from VS Code, through **your own [ntfy](https://ntfy.sh
 - **Debug sessions**: a debug session ended.
 - **Claude Code**: a turn finished, Claude asks you something, or it waits for your approval; in a terminal or in VS Code's Claude Code panel. See [Claude Code](#claude-code) below.
 - **Codex**: a turn finished, or Codex waits for your approval. See [Codex](#codex) below.
+- **GitHub Copilot**: a turn finished, in VS Code's agent mode or in Copilot CLI, or Copilot CLI waits for your approval. See [GitHub Copilot](#github-copilot) below.
 - **Your own messages**: typed in the panel or with **Nightping: Send Message…**, or sent by a key binding or another extension. See [Send your own message](#send-your-own-message) below.
 
-Coming next: other AI agents (Copilot CLI, Gemini CLI, Cursor and others through their hooks).
+Coming next: more AI agents (Cursor and others) through their hooks.
 
 A notification reads at a glance: the title says what finished, the message how it ended and how long it took, for example **❌ Task** / *Failed (exit 1) · 4m 12s*. Failures, questions and approval requests arrive at high priority.
 
@@ -110,6 +111,29 @@ How it works:
 - On Windows the hook names Windows' own `curl.exe` by its full path, because in PowerShell `curl` means something else.
 - The same rules apply as for Claude Code: quiet while you are using the VS Code window, the minimum duration for finished turns, pause, and the content level. At the **details** level a finished turn adds the first sentence of Codex's reply, and an approval request what Codex wants to run.
 - Codex has no event for questions, so Nightping tells you when a turn finishes and when Codex waits for approval. Tested with Codex 0.164.
+
+## GitHub Copilot
+
+**Connect it with one click.** In the Nightping panel, click **Connect GitHub Copilot** (or run **Nightping: Connect GitHub Copilot…**). After you confirm, Nightping adds a hooks file of its own, `~/.copilot/hooks/nightping.json`. Copilot's agent mode in VS Code and Copilot CLI both read every hooks file in that folder, so one file covers both, and your own hooks files are never touched. **Disconnect** deletes Nightping's file.
+
+**Or add it yourself.** **Copy Settings** (or **Nightping: Copy GitHub Copilot Hook Settings**) puts the file on the clipboard; save it as `~/.copilot/hooks/nightping.json`. It starts with `"version": 1`, and each of the three events (`UserPromptSubmit`, `Stop`, `notification`) gets the same hook:
+
+```json
+{
+  "type": "command",
+  "bash": "curl -s --connect-timeout 0.5 -m 5 -H \"Content-Type: application/json\" --data-binary \"@-\" http://127.0.0.1:47391/nightping/copilot || true",
+  "powershell": "C:\\Windows\\System32\\curl.exe -s --connect-timeout 0.5 -m 5 -H \"Content-Type: application/json\" --data-binary \"@-\" http://127.0.0.1:47391/nightping/copilot; exit 0",
+  "timeoutSec": 10
+}
+```
+
+How it works:
+
+- Copilot runs the hook in a shell with the event on standard input, and curl passes it on to Nightping at `127.0.0.1`. Copilot waits for its hooks, usually for less than half a second (on Windows most of it is PowerShell starting). While VS Code is closed, curl gives up within half a second and the hook still succeeds, so Copilot goes on as usual.
+- In VS Code, agent hooks are a preview feature, on by default (`chat.useHooks`), and VS Code runs them only in trusted workspaces. VS Code has no hook for its approval prompts, so there Nightping tells you when a turn finishes. Copilot CLI also tells it when it waits for your approval or asks you something.
+- The same rules apply as for Claude Code: quiet while you are using the VS Code window, the minimum duration for finished turns, pause, and the content level. Copilot's hooks do not include its reply, so a finished turn says how long it took; at the **details** level an approval request adds what Copilot CLI asks.
+- `COPILOT_HOME` moves Copilot CLI's folder but not the one VS Code reads, so Nightping always uses the one in your home folder.
+- Made for the hook formats of VS Code 1.144 and Copilot CLI 1.0.
 
 ## When it notifies
 

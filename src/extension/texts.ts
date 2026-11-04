@@ -84,6 +84,7 @@ export function panelStrings(t: Translate): PanelStrings {
       debug: t('Debug sessions end'),
       claude: t('Claude Code finishes or needs you'),
       codex: t('Codex finishes or needs you'),
+      copilot: t('GitHub Copilot finishes or needs you'),
     },
     terminalHelp: t('Works in terminals with shell integration.'),
     terminalNone: t(
@@ -146,6 +147,29 @@ export function panelStrings(t: Translate): PanelStrings {
       connect: t('Connect Codex'),
       receivingState: { ...agent.receivingState, off: t('Starts once Codex is connected.') },
       receivingHelp: t('Only while VS Code is open. When it is closed, Codex goes on as usual.'),
+    },
+    copilot: {
+      ...agent,
+      title: t('GitHub Copilot'),
+      help: {
+        ...agent.help,
+        connected: t(
+          'Copilot in VS Code and Copilot CLI tell Nightping on this computer when you send a prompt and when Copilot finishes; Copilot CLI also when it asks for your approval. VS Code runs the hooks in trusted workspaces only. Disconnect deletes {0}.',
+          '{0}',
+        ),
+        disconnected: t(
+          'Get a notification when GitHub Copilot finishes a turn, in VS Code (agent mode) or in Copilot CLI, and when Copilot CLI waits for your approval. Connect adds {0}, a hooks file only Nightping uses. Copy Settings copies it, so that you can add it yourself.',
+          '{0}',
+        ),
+      },
+      connect: t('Connect GitHub Copilot'),
+      receivingState: {
+        ...agent.receivingState,
+        off: t('Starts once GitHub Copilot is connected.'),
+      },
+      receivingHelp: t(
+        'Only while VS Code is open. When it is closed, Copilot CLI goes on as usual.',
+      ),
     },
     message: {
       title: t('Send a message'),

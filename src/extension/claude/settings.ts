@@ -18,7 +18,7 @@ export function hookUrl(port: number): string {
 
 export const CLAUDE_HOOKS: hookFile.HookSpec = {
   events: HOOK_EVENTS,
-  group: (port) => ({ hooks: [{ type: 'http', url: hookUrl(port), timeout: HOOK_TIMEOUT }] }),
+  entry: (port) => ({ hooks: [{ type: 'http', url: hookUrl(port), timeout: HOOK_TIMEOUT }] }),
   portOf(hook) {
     if (typeof hook !== 'object' || hook === null) return undefined;
     const { type, url } = hook as Record<string, unknown>;

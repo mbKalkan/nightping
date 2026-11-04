@@ -32,6 +32,7 @@ class PanelView {
   private readonly notify: NotifyCard;
   private readonly claude: AgentCard;
   private readonly codex: AgentCard;
+  private readonly copilot: AgentCard;
   private readonly message: MessageCard;
   private readonly time: Intl.DateTimeFormat;
   private readonly dateTime: Intl.DateTimeFormat;
@@ -101,6 +102,10 @@ class PanelView {
     const codex = this.card(strings.codex.title);
     codex.append(this.codex.element);
 
+    this.copilot = new AgentCard('copilot', strings.copilot);
+    const copilot = this.card(strings.copilot.title);
+    copilot.append(this.copilot.element);
+
     this.notify = new NotifyCard(strings, locale);
     const notify = this.card(strings.whenToNotify);
     notify.append(this.notify.element);
@@ -120,7 +125,7 @@ class PanelView {
     const settings = button(strings.allSettings, 'link');
     footer.append(element('p', 'ng-privacy', strings.privacy), settings);
 
-    main.append(header, destination, claude, codex, notify, message, recent, footer);
+    main.append(header, destination, claude, codex, copilot, notify, message, recent, footer);
     app.replaceChildren(main);
 
     for (const field of [this.server, this.topic, this.token]) {
@@ -171,6 +176,7 @@ class PanelView {
     this.removeToken.hidden = !state.hasToken;
     this.claude.show(state.claude);
     this.codex.show(state.codex);
+    this.copilot.show(state.copilot);
     this.notify.show(state);
     this.message.show(state);
     this.renderHistory(state.history);

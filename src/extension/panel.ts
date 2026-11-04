@@ -40,6 +40,11 @@ const AGENT_COMMANDS: Record<
     disconnectAgent: 'nightping.disconnectCodex',
     copyAgentSettings: 'nightping.copyCodexSettings',
   },
+  copilot: {
+    connectAgent: 'nightping.connectCopilot',
+    disconnectAgent: 'nightping.disconnectCopilot',
+    copyAgentSettings: 'nightping.copyCopilotSettings',
+  },
 };
 
 const SHELL_INTEGRATION_HELP = 'https://code.visualstudio.com/docs/terminal/shell-integration';
@@ -52,6 +57,7 @@ export interface PanelContext {
   pauser: Pauser;
   claude: AgentBridge;
   codex: AgentBridge;
+  copilot: AgentBridge;
 }
 
 /** The one Nightping panel: shown again rather than opened twice. */
@@ -101,6 +107,7 @@ export class Panel {
       context.pauser.onDidChange(() => void this.update()),
       context.claude.onDidChange(() => void this.update()),
       context.codex.onDidChange(() => void this.update()),
+      context.copilot.onDidChange(() => void this.update()),
       vscode.window.onDidOpenTerminal(() => void this.update()),
       vscode.window.onDidCloseTerminal(() => void this.update()),
       vscode.window.onDidChangeTerminalShellIntegration(() => void this.update()),
@@ -230,6 +237,7 @@ export class Panel {
       },
       claude: this.context.claude.status(),
       codex: this.context.codex.status(),
+      copilot: this.context.copilot.status(),
     };
     if (id === this.updating) this.post({ type: 'state', state });
   }

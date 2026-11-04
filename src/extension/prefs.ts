@@ -16,6 +16,7 @@ export const SOURCE_SETTINGS: Record<SourceKind, string> = {
   debug: 'notifyOn.debugSessions',
   claude: 'notifyOn.claudeCode',
   codex: 'notifyOn.codex',
+  copilot: 'notifyOn.copilot',
 };
 export const MINIMUM_SETTING = 'minimumDuration';
 export const AWAY_SETTING = 'onlyWhenAway';
@@ -25,7 +26,15 @@ export const CONTENT_SETTING = 'content';
 export const MAX_MINIMUM_SECONDS = 86_400;
 
 export const DEFAULT_PREFS: NotifyPrefs = {
-  sources: { task: true, terminal: true, notebook: true, debug: true, claude: true, codex: true },
+  sources: {
+    task: true,
+    terminal: true,
+    notebook: true,
+    debug: true,
+    claude: true,
+    codex: true,
+    copilot: true,
+  },
   minimumSeconds: 30,
   onlyWhenAway: true,
   content: 'result',

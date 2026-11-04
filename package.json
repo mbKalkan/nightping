@@ -49,6 +49,9 @@
     "claude code",
     "claude",
     "claude code notification",
+    "codex",
+    "copilot",
+    "copilot notification",
     "ai agent",
     "self-hosted",
     "android",
@@ -132,6 +135,21 @@
         "category": "%category%"
       },
       {
+        "command": "nightping.connectCopilot",
+        "title": "%command.connectCopilot%",
+        "category": "%category%"
+      },
+      {
+        "command": "nightping.disconnectCopilot",
+        "title": "%command.disconnectCopilot%",
+        "category": "%category%"
+      },
+      {
+        "command": "nightping.copyCopilotSettings",
+        "title": "%command.copyCopilotSettings%",
+        "category": "%category%"
+      },
+      {
         "command": "nightping.setToken",
         "title": "%command.setToken%",
         "category": "%category%"
@@ -172,6 +190,14 @@
         {
           "command": "nightping.disconnectCodex",
           "when": "nightping.codexHooks == connected || nightping.codexHooks == outdated"
+        },
+        {
+          "command": "nightping.connectCopilot",
+          "when": "nightping.copilotHooks != connected"
+        },
+        {
+          "command": "nightping.disconnectCopilot",
+          "when": "nightping.copilotHooks == connected || nightping.copilotHooks == outdated"
         }
       ]
     },
@@ -234,20 +260,27 @@
           "order": 8,
           "markdownDescription": "%config.notifyOn.codex%"
         },
+        "nightping.notifyOn.copilot": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "order": 9,
+          "markdownDescription": "%config.notifyOn.copilot%"
+        },
         "nightping.minimumDuration": {
           "type": "number",
           "default": 30,
           "minimum": 0,
           "maximum": 86400,
           "scope": "application",
-          "order": 9,
+          "order": 10,
           "markdownDescription": "%config.minimumDuration%"
         },
         "nightping.onlyWhenAway": {
           "type": "boolean",
           "default": true,
           "scope": "application",
-          "order": 10,
+          "order": 11,
           "markdownDescription": "%config.onlyWhenAway%"
         },
         "nightping.content": {
@@ -259,7 +292,7 @@
           ],
           "default": "result",
           "scope": "application",
-          "order": 11,
+          "order": 12,
           "markdownDescription": "%config.content%",
           "markdownEnumDescriptions": [
             "%config.content.result%",
@@ -273,7 +306,7 @@
           "minimum": 1024,
           "maximum": 65535,
           "scope": "application",
-          "order": 12,
+          "order": 13,
           "markdownDescription": "%config.port%"
         }
       }

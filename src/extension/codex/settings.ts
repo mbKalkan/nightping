@@ -25,7 +25,7 @@ export function codexCommands(port: number, windowsCurl: string) {
 export function codexHooks(windowsCurl: string): HookSpec {
   return {
     events: CODEX_EVENTS,
-    group: (port) => ({
+    entry: (port) => ({
       hooks: [
         {
           type: 'command',
