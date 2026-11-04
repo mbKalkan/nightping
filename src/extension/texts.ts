@@ -6,9 +6,8 @@ import type { Message, PublishResult } from './ntfy';
 export type Translate = (message: string, ...args: Array<string | number>) => string;
 
 export function panelStrings(t: Translate): PanelStrings {
-  // What every agent's card says the same way.
+  // What every agent's row says the same way.
   const agent = {
-    hooks: t('Hooks'),
     state: {
       connected: t('Connected'),
       outdated: t('Needs an update'),
@@ -25,10 +24,11 @@ export function panelStrings(t: Translate): PanelStrings {
         '{0}',
       ),
     },
+    connect: t('Connect'),
     reconnect: t('Reconnect'),
     disconnect: t('Disconnect'),
     copy: t('Copy Settings'),
-    receiving: t('Receiving'),
+    howItWorks: t('How it works'),
     receivingState: {
       listening: t('In this window, on port {0}.', '{0}'),
       'other-window': t('In another VS Code window, on port {0}.', '{0}'),
@@ -40,43 +40,94 @@ export function panelStrings(t: Translate): PanelStrings {
   };
   return {
     title: 'Nightping',
-    tagline: t('Phone notifications through your own ntfy server.'),
+    tagline: t(
+      'Get a notification on your phone when something you started in VS Code finishes or needs you.',
+    ),
     status: {
       ready: t('Ready'),
       incomplete: t('Not set up'),
       invalid: t('Check the settings'),
     },
-    pause: t('Pause…'),
+    pause: t('Pause Notifications…'),
     resume: t('Resume'),
     pausedUntil: t('Paused until {0}', '{0}'),
     pausedUntilResumed: t('Paused until you resume'),
-    destination: t('Where notifications go'),
+    destination: t('Your phone'),
+    steps: {
+      app: {
+        title: t('Install the ntfy app on your phone'),
+        help: t('ntfy is a free app that shows these notifications. Get it from:'),
+      },
+      server: {
+        title: t('Choose a server'),
+        help: t(
+          'Notifications reach your phone through an ntfy server. No server of your own? Click Use ntfy.sh: it is free and needs no account.',
+        ),
+      },
+      topic: {
+        title: t('Subscribe to this topic in the app'),
+        help: t(
+          'Open the ntfy app on your phone, tap + and enter this topic. Your notifications go out under this name.',
+        ),
+      },
+      test: {
+        title: t('Send a test'),
+        help: t(
+          'Saves the settings and sends a test. It should reach your phone within a few seconds.',
+        ),
+      },
+    },
     server: t('Server'),
-    serverHelp: t('Address of your ntfy server: https://ntfy.sh or your own server.'),
+    useNtfySh: t('Use ntfy.sh'),
     serverInvalid: t(
       'Enter an http:// or https:// address such as https://ntfy.sh, without a user name, password, ? or #.',
     ),
     topic: t('Topic'),
+    topicOwnServer: t(
+      'On your own server, also turn on “Use another server” in the app and enter {0}.',
+      '{0}',
+    ),
     topicHelp: t(
-      'Subscribe to the same topic in the ntfy app on your phone. On a public server anyone who knows the topic can read it, so make it hard to guess.',
+      'Anyone who knows the topic can read your notifications, so keep this random name.',
     ),
     topicInvalid: t('Use only letters, numbers, - and _, up to 64 characters.'),
-    randomTopic: t('Random Name'),
+    copyTopic: t('Copy'),
+    copied: t('Copied'),
+    randomTopic: t('New Name'),
+    addToken: t('My server needs an access token'),
     token: t('Access token'),
     tokenHelp: t(
-      'Only if your server asks for one. It is kept in the secret storage of VS Code on this computer, never in the settings.',
+      'It is kept in the secret storage of VS Code on this computer, never in the settings.',
     ),
-    tokenPlaceholder: t('Optional'),
     tokenSaved: t('Saved. Type a new token to replace it.'),
     tokenInvalid: t('An access token has no spaces or special characters.'),
     removeToken: t('Remove'),
-    save: t('Save'),
+    saveAndTest: t('Save and Send Test'),
+    chooseServerFirst: t('Choose a server first.'),
+    cancel: t('Cancel'),
+    sendingTo: t('Notifications go to the topic {0} on {1}.', '{0}', '{1}'),
+    change: t('Change'),
     sendTest: t('Send Test Notification'),
     sending: t('Sending…'),
-    saved: t('Saved.'),
-    sentAt: t('Sent at {0}. Check your phone.', '{0}'),
-    whenToNotify: t('When to notify'),
-    events: t('Events'),
+    sentAt: t(
+      'Sent at {0}. If it is not on your phone, subscribe to this topic in the ntfy app.',
+      '{0}',
+    ),
+    whenToNotify: t('When you get a notification'),
+    rules: {
+      lead: t(
+        'Your phone gets a notification when one of the things below finishes, fails or needs you:',
+      ),
+      away: t('Only while you are not using VS Code.'),
+      present: t('Also while you are using VS Code.'),
+      minimum: t('Only if it ran for {0} or longer, unless it failed or needs you.', '{0}'),
+      anyDuration: t('However long it ran.'),
+    },
+    previewHelp: t('On your phone, a failed build task looks like this:'),
+    vscodeEvents: t('In VS Code'),
+    agents: t('AI agents'),
+    agentsHelp: t('Connect an agent once; then its checkbox turns its notifications on and off.'),
+    openSettings: t('Open Settings'),
     sources: {
       task: t('Tasks finish'),
       terminal: t('Terminal commands finish'),
@@ -86,30 +137,27 @@ export function panelStrings(t: Translate): PanelStrings {
       codex: t('Codex finishes or needs you'),
       copilot: t('GitHub Copilot finishes or needs you'),
     },
-    terminalHelp: t('Works in terminals with shell integration.'),
+    terminalHelp: t('Only in terminals that tell VS Code when a command ends (shell integration).'),
     terminalNone: t(
-      'None of the open terminals has shell integration, so their commands cannot notify.',
+      'None of the open terminals tells VS Code when a command ends, so their commands cannot notify.',
     ),
     learnMore: t('Learn More'),
-    conditions: t('Conditions'),
+    changeRules: t('Change the rules'),
     minimum: t('Minimum duration'),
-    minimumHelp: t('Shorter runs stay quiet. Failures notify at any duration.'),
+    minimumHelp: t('Shorter runs stay quiet, unless they fail or an agent waits for you.'),
     noMinimum: t('None'),
     seconds: t('{0} seconds', '{0}'),
     oneMinute: t('1 minute'),
     minutes: t('{0} minutes', '{0}'),
-    onlyWhenAway: t('Only when I am away'),
+    onlyWhenAway: t('Only when I am not using VS Code'),
     onlyWhenAwayHelp: t('Quiet while you are using this VS Code window.'),
-    content: t('Content'),
+    content: t('What the notification says'),
     contentLevels: {
       result: t('Result and duration'),
       folder: t('Also the workspace name'),
       details: t('Also the task name, command line or file name'),
     },
-    contentHelp: t('This is what reaches your server.'),
-    preview: t('Preview'),
-    previewHelp: t('A failed build task, as your phone shows it.'),
-    appliesNow: t('Changes here apply right away.'),
+    contentHelp: t('This text passes through your ntfy server.'),
     claude: {
       ...agent,
       title: t('Claude Code'),
@@ -120,11 +168,10 @@ export function panelStrings(t: Translate): PanelStrings {
           '{0}',
         ),
         disconnected: t(
-          'Get a notification when Claude Code finishes a turn, asks you something or waits for your approval, in a terminal or in VS Code. Connect adds three hooks to {0} and keeps a copy of the file. Copy Settings copies them, so that you can add them yourself or ask Claude Code to.',
+          'Connect adds three hooks to {0}: small entries that tell Nightping when you send a prompt, when Claude finishes and when it needs you, in a terminal or in VS Code. A copy of the file is kept first. Copy Settings copies the hooks, so that you can add them yourself.',
           '{0}',
         ),
       },
-      connect: t('Connect Claude Code'),
       receivingState: { ...agent.receivingState, off: t('Starts once Claude Code is connected.') },
       receivingHelp: t(
         'Only while VS Code is open. When it is closed, Claude Code goes on as usual.',
@@ -136,15 +183,17 @@ export function panelStrings(t: Translate): PanelStrings {
       help: {
         ...agent.help,
         connected: t(
-          'Codex tells Nightping on this computer when you send a prompt, when it finishes and when it asks for your approval. Codex runs new hooks only after you trust them once with /hooks. Disconnect removes only these hooks from {0}.',
+          'Codex tells Nightping on this computer when you send a prompt, when it finishes and when it asks for your approval. Disconnect removes only these hooks from {0}.',
           '{0}',
         ),
         disconnected: t(
-          'Get a notification when Codex finishes a turn or asks for your approval. Connect adds three hooks to {0} and keeps a copy of the file; then trust them once with /hooks in Codex. Copy Settings copies them, so that you can add them yourself.',
+          'Connect adds three hooks to {0}: small entries that tell Nightping when you send a prompt, when Codex finishes and when it asks for your approval. A copy of the file is kept first, and Codex asks you to trust the hooks once. Copy Settings copies them, so that you can add them yourself.',
           '{0}',
         ),
       },
-      connect: t('Connect Codex'),
+      nextStep: t(
+        'One more step: type /hooks in Codex and trust the three Nightping hooks. Until then, Codex skips them.',
+      ),
       receivingState: { ...agent.receivingState, off: t('Starts once Codex is connected.') },
       receivingHelp: t('Only while VS Code is open. When it is closed, Codex goes on as usual.'),
     },
@@ -158,11 +207,10 @@ export function panelStrings(t: Translate): PanelStrings {
           '{0}',
         ),
         disconnected: t(
-          'Get a notification when GitHub Copilot finishes a turn, in VS Code (agent mode) or in Copilot CLI, and when Copilot CLI waits for your approval. Connect adds {0}, a hooks file only Nightping uses. Copy Settings copies it, so that you can add it yourself.',
+          'Connect adds {0}, a hooks file only Nightping uses. Copilot in VS Code (agent mode) and Copilot CLI then tell Nightping when a turn ends, and Copilot CLI also when it waits for your approval. Copy Settings copies the file, so that you can add it yourself.',
           '{0}',
         ),
       },
-      connect: t('Connect GitHub Copilot'),
       receivingState: {
         ...agent.receivingState,
         off: t('Starts once GitHub Copilot is connected.'),
@@ -175,9 +223,7 @@ export function panelStrings(t: Translate): PanelStrings {
       title: t('Send a message'),
       label: t('Message'),
       placeholder: t('Type a message for your phone'),
-      help: t(
-        'Goes to your phone now, even while notifications are paused. Key bindings and other extensions can send messages too, with the nightping.send command.',
-      ),
+      help: t('Goes to your phone now, even while notifications are paused.'),
       send: t('Send'),
       sentAt: t('Sent at {0}.', '{0}'),
     },
@@ -188,7 +234,9 @@ export function panelStrings(t: Translate): PanelStrings {
     sent: t('Sent'),
     notSent: t('Not sent'),
     allSettings: t('All Settings'),
-    privacy: t('Nightping sends only to the server above. No telemetry, no other network traffic.'),
+    privacy: t(
+      'Nightping sends only to the server you chose. No telemetry, no other network traffic.',
+    ),
   };
 }
 

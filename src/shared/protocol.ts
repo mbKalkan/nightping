@@ -10,33 +10,56 @@ export interface PanelStrings {
   /** `{0}` is the time. */
   pausedUntil: string;
   pausedUntilResumed: string;
+  /** The "Your phone" card. */
   destination: string;
+  /** The setup steps, in order; each has a title and a line that says what to do. */
+  steps: Record<'app' | 'server' | 'topic' | 'test', { title: string; help: string }>;
   server: string;
-  serverHelp: string;
+  useNtfySh: string;
   serverInvalid: string;
   topic: string;
+  /** How to subscribe on one's own server; `{0}` is its address. */
+  topicOwnServer: string;
   topicHelp: string;
   topicInvalid: string;
+  copyTopic: string;
+  copied: string;
   randomTopic: string;
+  addToken: string;
   token: string;
   tokenHelp: string;
-  tokenPlaceholder: string;
   tokenSaved: string;
   tokenInvalid: string;
   removeToken: string;
-  save: string;
+  saveAndTest: string;
+  /** Beside Save and Send Test while there is no server yet. */
+  chooseServerFirst: string;
+  cancel: string;
+  /** `{0}` is the topic, `{1}` the server. */
+  sendingTo: string;
+  change: string;
   sendTest: string;
   sending: string;
-  saved: string;
   /** `{0}` is the time. */
   sentAt: string;
+  /** The "When you get a notification" card. */
   whenToNotify: string;
-  events: string;
+  /**
+   * The rules: a sentence, then one line for presence and one for duration.
+   * In `minimum`, `{0}` is the minimum duration.
+   */
+  rules: Record<'lead' | 'away' | 'present' | 'minimum' | 'anyDuration', string>;
+  previewHelp: string;
+  vscodeEvents: string;
+  agents: string;
+  agentsHelp: string;
+  /** Beside the warning that another program holds the port. */
+  openSettings: string;
   sources: Record<SourceKind, string>;
   terminalHelp: string;
   terminalNone: string;
   learnMore: string;
-  conditions: string;
+  changeRules: string;
   minimum: string;
   minimumHelp: string;
   noMinimum: string;
@@ -50,9 +73,6 @@ export interface PanelStrings {
   content: string;
   contentLevels: Record<ContentLevel, string>;
   contentHelp: string;
-  preview: string;
-  previewHelp: string;
-  appliesNow: string;
   claude: AgentStrings;
   codex: AgentStrings;
   copilot: AgentStrings;
@@ -75,10 +95,9 @@ export interface PanelStrings {
   privacy: string;
 }
 
-/** The texts of an agent's card. */
+/** The texts of an agent's row. */
 export interface AgentStrings {
   title: string;
-  hooks: string;
   state: Record<AgentStatus['hooks'], string>;
   /** `{0}` is the settings file. */
   help: Record<AgentStatus['hooks'], string>;
@@ -86,7 +105,9 @@ export interface AgentStrings {
   reconnect: string;
   disconnect: string;
   copy: string;
-  receiving: string;
+  howItWorks: string;
+  /** What the user still has to do once the hooks are in, if anything. */
+  nextStep?: string;
   /** `{0}` is the port. */
   receivingState: Record<AgentStatus['receiving'], string>;
   receivingHelp: string;
@@ -96,6 +117,17 @@ export type PanelStatus = 'ready' | 'incomplete' | 'invalid';
 
 /** The AI agents whose hooks post to Nightping. */
 export type AgentKind = 'claude' | 'codex' | 'copilot';
+
+export const AGENT_KINDS: readonly AgentKind[] = ['claude', 'codex', 'copilot'];
+
+/** Where the ntfy app is, by the stores' own names; the host holds the addresses. */
+export const APP_STORES = {
+  'google-play': 'Google Play',
+  'f-droid': 'F-Droid',
+  'app-store': 'App Store',
+} as const;
+
+export type AppStore = keyof typeof APP_STORES;
 
 /** Longer messages are cut: a phone shows a few lines, and ntfy turns 4 KB into a file. */
 export const MESSAGE_LIMIT = 1000;
@@ -208,6 +240,9 @@ export type WebviewToHostMessage =
   | { type: 'pause' }
   | { type: 'resume' }
   | { type: 'openShellIntegrationHelp' }
+  | { type: 'openAppStore'; store: AppStore }
+  /** The topic as typed: it may not be saved yet. */
+  | { type: 'copyTopic'; topic: string }
   | { type: 'connectAgent'; agent: AgentKind }
   | { type: 'disconnectAgent'; agent: AgentKind }
   | { type: 'copyAgentSettings'; agent: AgentKind };

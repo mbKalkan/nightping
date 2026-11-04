@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import type {
   AgentKind,
+  AppStore,
   HostToWebviewMessage,
   PanelState,
   WebviewToHostMessage,
@@ -48,6 +49,12 @@ const AGENT_COMMANDS: Record<
 };
 
 const SHELL_INTEGRATION_HELP = 'https://code.visualstudio.com/docs/terminal/shell-integration';
+/** The ntfy app in each store, as the README links them. */
+const APP_STORE_PAGES: Record<AppStore, string> = {
+  'google-play': 'https://play.google.com/store/apps/details?id=io.heckel.ntfy',
+  'f-droid': 'https://f-droid.org/en/packages/io.heckel.ntfy/',
+  'app-store': 'https://apps.apple.com/us/app/ntfy/id1625396347',
+};
 
 export interface PanelContext {
   extensionUri: vscode.Uri;
@@ -189,6 +196,19 @@ export class Panel {
       }
       case 'openShellIntegrationHelp':
         await vscode.env.openExternal(vscode.Uri.parse(SHELL_INTEGRATION_HELP));
+        return;
+      case 'openAppStore': {
+        // Only the addresses above: the panel names a store, never a link.
+        const page = Object.hasOwn(APP_STORE_PAGES, message.store)
+          ? APP_STORE_PAGES[message.store]
+          : undefined;
+        if (page) await vscode.env.openExternal(vscode.Uri.parse(page));
+        return;
+      }
+      case 'copyTopic':
+        if (typeof message.topic === 'string' && isTopic(message.topic.trim())) {
+          await vscode.env.clipboard.writeText(message.topic.trim());
+        }
         return;
     }
   }

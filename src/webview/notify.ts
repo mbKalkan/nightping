@@ -1,23 +1,32 @@
-// The "When to notify" card. Every control writes its setting at once, as VS Code's own
-// settings do; the next state from the host confirms it.
+// The "When you get a notification" card: the rules in one sentence and an example, then what
+// can notify (VS Code's own events, then the AI agents), and the rules themselves folded away.
+// Every control writes its setting at once, as VS Code's own settings do; the next state from
+// the host confirms it.
 import {
+  AGENT_KINDS,
   CONTENT_LEVELS,
-  SOURCE_KINDS,
+  type AgentKind,
   type ContentLevel,
   type PanelState,
   type PanelStrings,
   type PrefChange,
   type SourceKind,
 } from '../shared/protocol';
+import { AgentRow } from './agent';
 import { button, element } from './dom';
 import { vscode } from './vscodeApi';
 
 /** The minimum durations the list offers, in seconds; a value set elsewhere is added. */
 const MINIMUMS = [0, 10, 30, 60, 120, 300, 600, 1800];
 
+/** What VS Code itself reports; the agents follow in rows of their own. */
+const VSCODE_KINDS: readonly SourceKind[] = ['task', 'terminal', 'notebook', 'debug'];
+
 export class NotifyCard {
   readonly element = element('div', 'ng-notify');
+  private readonly conditions = element('ul', 'ng-conditions');
   private readonly sources = new Map<SourceKind, HTMLInputElement>();
+  private readonly agents = new Map<AgentKind, AgentRow>();
   private readonly terminalNone = element('p', 'ng-warning');
   private readonly minimum = element('select', 'ng-select');
   private readonly away: HTMLInputElement;
@@ -34,9 +43,68 @@ export class NotifyCard {
   ) {
     this.number = new Intl.NumberFormat(locale);
 
-    // Events: one checkbox each; the terminal says when it cannot see commands.
-    const events = group('ng-events', strings.events, 'group');
-    for (const kind of SOURCE_KINDS) {
+    // The rules, folded under the sentence that says them.
+    const rules = element('details', 'ng-details');
+    const rulesBody = element('div', 'ng-details-body ng-stack');
+    rules.append(element('summary', undefined, strings.changeRules), rulesBody);
+
+    const away = checkbox('ng-away', strings.onlyWhenAway, strings.onlyWhenAwayHelp);
+    this.away = away.input;
+    this.away.addEventListener('change', () =>
+      change({ key: 'onlyWhenAway', on: this.away.checked }),
+    );
+
+    const minimum = element('div', 'ng-option');
+    const minimumRow = element('div', 'ng-inline');
+    const minimumLabel = element('label', 'ng-option-title', strings.minimum);
+    minimumLabel.htmlFor = this.minimum.id = 'ng-minimum';
+    this.minimum.setAttribute('aria-describedby', 'ng-minimum-help');
+    minimumRow.append(minimumLabel, this.minimum);
+    const minimumHelp = element('p', 'ng-help', strings.minimumHelp);
+    minimumHelp.id = 'ng-minimum-help';
+    minimum.append(minimumRow, minimumHelp);
+    this.minimum.addEventListener('change', () =>
+      change({ key: 'minimumSeconds', seconds: Number(this.minimum.value) }),
+    );
+
+    // Three levels, each adding to the one before; the example follows the choice.
+    const content = element('div', 'ng-option ng-stack');
+    const contentTitle = element('span', 'ng-option-title', strings.content);
+    contentTitle.id = 'ng-content-label';
+    content.setAttribute('role', 'radiogroup');
+    content.setAttribute('aria-labelledby', contentTitle.id);
+    content.append(contentTitle);
+    for (const level of CONTENT_LEVELS) {
+      const radio = choice(`ng-content-${level}`, 'ng-content', strings.contentLevels[level]);
+      this.levels.set(level, radio.input);
+      content.append(radio.element);
+      radio.input.addEventListener('change', () => {
+        if (!radio.input.checked) return;
+        this.showPreview(level);
+        change({ key: 'content', content: level });
+      });
+    }
+    content.append(element('p', 'ng-help', strings.contentHelp));
+    rulesBody.append(away.element, minimum, content);
+
+    // A sentence, then one line for each condition, so each can be read on its own.
+    const text = element('div', 'ng-rules-text');
+    text.append(element('p', 'ng-rule', strings.rules.lead), this.conditions);
+
+    const example = element('figure', 'ng-example');
+    const card = element('div', 'ng-preview');
+    const title = element('p', 'ng-preview-title');
+    this.previewEmoji.setAttribute('aria-hidden', 'true');
+    title.append(this.previewEmoji, this.previewTitle);
+    card.append(title, this.previewMessage);
+    example.append(element('figcaption', 'ng-help', strings.previewHelp), card);
+
+    const top = element('div', 'ng-rules');
+    top.append(text, example, rules);
+
+    // VS Code's events: one checkbox each; the terminal says when it cannot see commands.
+    const events = section('ng-events', strings.vscodeEvents);
+    for (const kind of VSCODE_KINDS) {
       const check = checkbox(`ng-source-${kind}`, strings.sources[kind]);
       this.sources.set(kind, check.input);
       events.body.append(check.element);
@@ -58,60 +126,25 @@ export class NotifyCard {
       }
     }
 
-    // Conditions: how long a run must take, and whether the user must be away.
-    const conditions = group('ng-conditions', strings.conditions, 'group');
-    const minimumRow = element('div', 'ng-inline');
-    const minimumLabel = element('label', undefined, strings.minimum);
-    minimumLabel.htmlFor = this.minimum.id = 'ng-minimum';
-    this.minimum.setAttribute('aria-describedby', 'ng-minimum-help');
-    minimumRow.append(minimumLabel, this.minimum);
-    const minimumHelp = element('p', 'ng-help', strings.minimumHelp);
-    minimumHelp.id = 'ng-minimum-help';
-    const away = checkbox('ng-away', strings.onlyWhenAway, strings.onlyWhenAwayHelp);
-    this.away = away.input;
-    conditions.body.append(minimumRow, minimumHelp, away.element);
-    this.minimum.addEventListener('change', () =>
-      change({ key: 'minimumSeconds', seconds: Number(this.minimum.value) }),
-    );
-    this.away.addEventListener('change', () =>
-      change({ key: 'onlyWhenAway', on: this.away.checked }),
-    );
-
-    // Content: three levels, each adding to the one before, with a preview of the choice.
-    const content = group('ng-content', strings.content, 'radiogroup');
-    for (const level of CONTENT_LEVELS) {
-      const radio = choice(`ng-content-${level}`, 'ng-content', strings.contentLevels[level]);
-      this.levels.set(level, radio.input);
-      content.body.append(radio.element);
-      radio.input.addEventListener('change', () => {
-        if (!radio.input.checked) return;
-        this.showPreview(level);
-        change({ key: 'content', content: level });
-      });
+    const agents = section('ng-agents', strings.agents, strings.agentsHelp);
+    agents.body.className = 'ng-agent-list';
+    for (const agent of AGENT_KINDS) {
+      const row = new AgentRow(agent, strings.sources[agent], strings[agent], strings.openSettings);
+      this.agents.set(agent, row);
+      agents.body.append(row.element);
+      row.input.addEventListener('change', () =>
+        change({ key: 'source', source: agent, on: row.input.checked }),
+      );
     }
-    content.body.append(element('p', 'ng-help', strings.contentHelp));
 
-    const preview = group('ng-preview', strings.preview, 'group');
-    const card = element('div', 'ng-preview');
-    const title = element('p', 'ng-preview-title');
-    this.previewEmoji.setAttribute('aria-hidden', 'true');
-    title.append(this.previewEmoji, this.previewTitle);
-    card.append(title, this.previewMessage);
-    preview.body.append(card, element('p', 'ng-help', strings.previewHelp));
-
-    this.element.append(
-      events.element,
-      conditions.element,
-      content.element,
-      preview.element,
-      element('p', 'ng-note', strings.appliesNow),
-    );
+    this.element.append(top, events.element, agents.element);
   }
 
   show(state: PanelState): void {
     this.state = state;
     const { prefs, terminals } = state;
     for (const [kind, input] of this.sources) input.checked = prefs.sources[kind];
+    for (const [agent, row] of this.agents) row.show(state[agent], prefs.sources[agent]);
     this.terminalNone.hidden = !(terminals.open > 0 && terminals.reporting === 0);
 
     const options = MINIMUMS.includes(prefs.minimumSeconds)
@@ -126,6 +159,17 @@ export class NotifyCard {
     );
     this.minimum.value = String(prefs.minimumSeconds);
     this.away.checked = prefs.onlyWhenAway;
+    const rules = this.strings.rules;
+    this.conditions.replaceChildren(
+      element('li', undefined, prefs.onlyWhenAway ? rules.away : rules.present),
+      element(
+        'li',
+        undefined,
+        prefs.minimumSeconds > 0
+          ? rules.minimum.replace('{0}', this.duration(prefs.minimumSeconds))
+          : rules.anyDuration,
+      ),
+    );
 
     for (const [level, input] of this.levels) input.checked = level === prefs.content;
     this.showPreview(prefs.content);
@@ -153,16 +197,18 @@ function change(change: PrefChange): void {
   vscode.postMessage({ type: 'setPref', change });
 }
 
-/** A label on the left and its controls on the right, like the form's fields. */
-function group(id: string, label: string, role: 'group' | 'radiogroup') {
-  const field = element('div', 'ng-field');
-  const labelNode = element('span', 'ng-label', label);
-  labelNode.id = `${id}-label`;
-  const body = element('div', 'ng-field-body ng-stack');
-  body.setAttribute('role', role);
-  body.setAttribute('aria-labelledby', labelNode.id);
-  field.append(labelNode, body);
-  return { element: field, body };
+/** A titled list of checkboxes or rows, with a line on how to use it if it needs one. */
+function section(id: string, title: string, help?: string) {
+  const node = element('div', 'ng-group');
+  const heading = element('h3', 'ng-group-title', title);
+  heading.id = `${id}-title`;
+  const body = element('div', 'ng-stack');
+  body.setAttribute('role', 'group');
+  body.setAttribute('aria-labelledby', heading.id);
+  node.append(heading);
+  if (help) node.append(element('p', 'ng-help ng-group-help', help));
+  node.append(body);
+  return { element: node, body };
 }
 
 function checkbox(id: string, label: string, help?: string) {
