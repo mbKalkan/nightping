@@ -75,7 +75,6 @@
   "{0} seconds": "{0} saniye",
   "1 minute": "1 dakika",
   "{0} minutes": "{0} dakika",
-  "Quiet while you are using this VS Code window.": "Bu VS Code penceresini kullanırken bildirim gelmez.",
   "Result and duration": "Sonuç ve süre",
   "Also the workspace name": "Çalışma alanının adı da",
   "Also the task name, command line or file name": "Görev adı, komut satırı ya da dosya adı da",
@@ -208,5 +207,6 @@
   "However long it ran.": "Ne kadar sürdüğüne bakılmaz.",
   "On your phone, a failed build task looks like this:": "Başarısız bir build görevi telefonunuzda şöyle görünür:",
   "Connect an agent once; then its checkbox turns its notifications on and off.": "Bir ajanı bir kez bağlayın; sonra kutucuğu onun bildirimlerini açıp kapatır.",
-  "Open Settings": "Ayarları Aç"
+  "Open Settings": "Ayarları Aç",
+  "Quiet while you are using any VS Code window on this computer.": "Bu bilgisayardaki herhangi bir VS Code penceresini kullanırken bildirim gelmez."
 }

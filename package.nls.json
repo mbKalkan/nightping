@@ -30,7 +30,7 @@
   "config.notifyOn.codex": "Notify when Codex finishes a turn or waits for your approval. Needs **Nightping: Connect Codex…**.",
   "config.notifyOn.copilot": "Notify when GitHub Copilot finishes a turn in VS Code or in Copilot CLI, and when Copilot CLI waits for your approval. Needs **Nightping: Connect GitHub Copilot…**.",
   "config.minimumDuration": "Runs that succeed in less than this many seconds stay quiet. Failures notify at any duration. `0` notifies about every run.",
-  "config.onlyWhenAway": "Stay quiet while you are using this VS Code window: it is focused and you used it in the last few seconds.",
+  "config.onlyWhenAway": "Stay quiet while you are using any VS Code window on this computer: it is focused and you used it in the last few seconds.",
   "config.content": "What a notification says. Everything in it goes to your ntfy server.",
   "config.content.result": "The kind of run, its result and duration, for example `Task` / `Failed (exit 1) · 4m 12s`.",
   "config.content.folder": "Also the workspace name.",

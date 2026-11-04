@@ -150,7 +150,7 @@ export function panelStrings(t: Translate): PanelStrings {
     oneMinute: t('1 minute'),
     minutes: t('{0} minutes', '{0}'),
     onlyWhenAway: t('Only when I am not using VS Code'),
-    onlyWhenAwayHelp: t('Quiet while you are using this VS Code window.'),
+    onlyWhenAwayHelp: t('Quiet while you are using any VS Code window on this computer.'),
     content: t('What the notification says'),
     contentLevels: {
       result: t('Result and duration'),

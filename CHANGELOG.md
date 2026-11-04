@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Only when I am not using VS Code** now looks at every VS Code window on this computer. An agent's finished turn arrived as a notification while you worked in another VS Code window, because only one window receives the agents' events and it looked at itself. A task or command that finishes in one window now also stays quiet while you work in another.
+
 ## [0.1.0] - 2026-11-05
 
 First release: phone notifications through your own ntfy server when VS Code tasks, terminal commands, notebook cells and debug sessions finish, and when Claude Code, Codex or GitHub Copilot finishes a turn or waits for you.
