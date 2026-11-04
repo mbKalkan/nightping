@@ -30,7 +30,7 @@
   "config.notifyOn.codex": "Codex yanıtını bitirince ya da onayınızı beklerken bildirim gönder. Bunun için önce **Nightping: Codex'i Bağla…** komutunu çalıştırın.",
   "config.notifyOn.copilot": "GitHub Copilot VS Code'da ya da Copilot CLI'de yanıtını bitirince ve Copilot CLI onayınızı beklerken bildirim gönder. Bunun için önce **Nightping: GitHub Copilot'u Bağla…** komutunu çalıştırın.",
   "config.minimumDuration": "Bu kadar saniyeden kısa sürede başarıyla biten işler bildirim göndermez. Başarısızlıklar her sürede bildirilir. `0` her işi bildirir.",
-  "config.onlyWhenAway": "Bu VS Code penceresini kullanırken bildirim gönderme: pencere odaktaysa ve son birkaç saniye içinde kullandıysanız.",
+  "config.onlyWhenAway": "Bu bilgisayardaki herhangi bir VS Code penceresini kullanırken bildirim gönderme: pencere odaktaysa ve son birkaç saniye içinde kullandıysanız.",
   "config.content": "Bildirimin içeriği. İçindeki her şey ntfy sunucunuza gider.",
   "config.content.result": "İşin türü, sonucu ve süresi, örneğin `Görev` / `Başarısız (çıkış 1) · 4 dk 12 sn`.",
   "config.content.folder": "Çalışma alanının adı da.",

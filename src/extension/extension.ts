@@ -1,3 +1,4 @@
+import * as path from 'node:path';
 import * as vscode from 'vscode';
 import {
   clearToken,
@@ -20,6 +21,7 @@ import { formatEvent } from './format';
 import { History } from './history';
 import { Panel } from './panel';
 import { Pauser } from './pause';
+import { folderBoard, Presence } from './presence';
 import { currentDestination, currentPrefs, Sender } from './sender';
 import { watchSources } from './sources';
 import { StatusBar } from './statusBar';
@@ -29,11 +31,17 @@ export function activate(context: vscode.ExtensionContext): void {
   const history = new History(context.globalState);
   const sender = new Sender(secrets, history);
   const pauser = new Pauser(context.globalState);
+  // The user may be at another VS Code window than the one that hears the event.
+  const presence = new Presence(
+    folderBoard(path.join(context.globalStorageUri.fsPath, 'presence')),
+    () => vscode.window.state,
+  );
+  presence.start();
   // VS Code's runs and the agents' turns go through the same filter and format.
   const notify = (event: FinishedEvent) => {
     const prefs = currentPrefs();
     const paused = pauser.current() !== undefined;
-    if (decide(event, prefs, vscode.window.state, paused) !== 'send') return;
+    if (decide(event, prefs, presence.state(), paused) !== 'send') return;
     void sender.send(formatEvent(vscode.l10n.t, event, prefs.content, vscode.workspace.name));
   };
   // One endpoint for every agent's hooks; each agent posts to its own path.
@@ -90,7 +98,9 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }),
     // Another window may have paused or resumed in the meantime.
+    presence,
     vscode.window.onDidChangeWindowState((state) => {
+      presence.changed();
       if (!state.focused) return;
       pauser.refresh();
       // The agents' files may have changed while VS Code was in the background.

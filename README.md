@@ -139,7 +139,7 @@ How it works:
 
 ## When it notifies
 
-By default Nightping stays quiet while you are using the VS Code window where the run finished (it is focused and you used it in the last few seconds), and about runs that succeed in under 30 seconds. Failures notify at any duration.
+By default Nightping stays quiet while you are using any VS Code window on this computer (it is focused and you used it in the last few seconds), even when the run finished or the agent works in another window, and about runs that succeed in under 30 seconds. Failures notify at any duration.
 
 The **When you get a notification** card of the Nightping panel says these rules in one sentence, next to an example of what your phone shows. Below it, each kind of event and each connected agent has its own checkbox, and **Change the rules** opens the rest. Changes apply right away:
 
