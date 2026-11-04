@@ -13,10 +13,10 @@ Phone push notifications from VS Code, through **your own [ntfy](https://ntfy.sh
 - **Notebook cells**: a cell finished running.
 - **Debug sessions**: a debug session ended.
 - **Claude Code**: a turn finished, Claude asks you something, or it waits for your approval; in a terminal or in VS Code's Claude Code panel. See [Claude Code](#claude-code) below.
-
+- **Codex**: a turn finished, or Codex waits for your approval. See [Codex](#codex) below.
 - **Your own messages**: typed in the panel or with **Nightping: Send Message…**, or sent by a key binding or another extension. See [Send your own message](#send-your-own-message) below.
 
-Coming next: other AI agents (Codex, Copilot, Gemini CLI, Cursor and others through their hooks).
+Coming next: other AI agents (Copilot CLI, Gemini CLI, Cursor and others through their hooks).
 
 A notification reads at a glance: the title says what finished, the message how it ended and how long it took, for example **❌ Task** / *Failed (exit 1) · 4m 12s*. Failures, questions and approval requests arrive at high priority.
 
@@ -85,6 +85,31 @@ How it works:
 - The same rules as for everything else apply: quiet while you are using the VS Code window, the minimum duration for finished turns (questions and approval requests notify at once), pause, and the content level. At the **details** level a finished turn adds the first sentence of Claude's reply, and an approval request what Claude asks permission for; this goes to your server.
 - A turn in which a subagent is still running is not finished yet: Claude goes on when the subagent is done, and that end notifies.
 - If you already get Claude Code notifications another way (your own hook, for example), turn that off, or they arrive twice.
+
+## Codex
+
+**Connect it with one click.** In the Nightping panel, click **Connect Codex** (or run **Nightping: Connect Codex…**). After you confirm, Nightping adds three hooks to Codex's `~/.codex/hooks.json` (or the `hooks.json` in an absolute `CODEX_HOME`): when you send a prompt, when Codex finishes, and when it asks for your approval. It saves a copy of the file as `hooks.json.nightping.bak` first and leaves your own hooks as they are. **Disconnect** removes only Nightping's hooks.
+
+**Then trust the hooks once.** Codex runs a new hook only after you have reviewed and trusted it. Run `/hooks` in Codex and trust the three Nightping hooks; until then Codex skips them. After a port change, reconnect and trust them again.
+
+**Or add the hooks yourself.** **Copy Settings** (or **Nightping: Copy Codex Hook Settings**) puts them on the clipboard. Each of the three events (`UserPromptSubmit`, `Stop`, `PermissionRequest`) gets the same hook:
+
+```json
+{
+  "type": "command",
+  "command": "curl -s -m 5 -H \"Content-Type: application/json\" --data-binary \"@-\" http://127.0.0.1:47391/nightping/codex",
+  "commandWindows": "C:\\Windows\\System32\\curl.exe -s -m 5 -H \"Content-Type: application/json\" --data-binary \"@-\" http://127.0.0.1:47391/nightping/codex",
+  "timeout": 10,
+  "async": true
+}
+```
+
+How it works:
+
+- Codex runs the hook in its shell with the event on standard input, and curl passes it on to Nightping at `127.0.0.1`. The hooks are asynchronous: Codex does not wait for them, and nothing they do changes what Codex does. While VS Code is closed, curl finds nobody and Codex goes on as usual.
+- On Windows the hook names Windows' own `curl.exe` by its full path, because in PowerShell `curl` means something else.
+- The same rules apply as for Claude Code: quiet while you are using the VS Code window, the minimum duration for finished turns, pause, and the content level. At the **details** level a finished turn adds the first sentence of Codex's reply, and an approval request what Codex wants to run.
+- Codex has no event for questions, so Nightping tells you when a turn finishes and when Codex waits for approval. Tested with Codex 0.164.
 
 ## When it notifies
 

@@ -102,18 +102,18 @@ body {
 }
 
 /* Claude Code: the hooks' state, then the buttons that change them. */
-.ng-claude-state {
+.ng-agent-state {
   padding-top: 3px;
 }
 
-.ng-claude-actions {
+.ng-agent-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
 /* On the label's line, warning or not (a warning has its own top margin). */
-.ng-stack > .ng-claude-receiving {
+.ng-stack > .ng-agent-receiving {
   margin: 5px 0 0;
 }
 

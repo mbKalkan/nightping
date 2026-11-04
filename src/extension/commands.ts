@@ -1,6 +1,6 @@
 // The command palette way to do what the panel does.
 import * as vscode from 'vscode';
-import type { ClaudeBridge } from './claude/bridge';
+import type { AgentBridge } from './agentBridge';
 import { isServerUrl, isToken, isTopic, normalizeServer, suggestTopic } from './config';
 import { readMessage } from './message';
 import { isPauseMinutes, PAUSE_MINUTES, type Pauser } from './pause';
@@ -11,7 +11,7 @@ export interface Services {
   secrets: vscode.SecretStorage;
   sender: Sender;
   pauser: Pauser;
-  claude: ClaudeBridge;
+  claude: AgentBridge;
 }
 
 /**

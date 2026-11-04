@@ -1,5 +1,5 @@
 // Something that finished, or waits for the user, as the sources report it. Pure: no VS Code.
-import type { SourceKind } from '../shared/protocol';
+import type { AgentKind, SourceKind } from '../shared/protocol';
 
 interface Run {
   kind: SourceKind;
@@ -12,17 +12,27 @@ export type FinishedEvent =
   | (Run & { kind: 'notebook'; file: string; cell: number; success: boolean | undefined })
   | (Run & { kind: 'debug'; name: string })
   | {
-      kind: 'claude';
+      kind: AgentKind;
       state: 'finished' | 'approval' | 'question';
       /** Unknown when Nightping did not see the prompt that started the turn. */
       durationMs: number | undefined;
-      /** Claude Code's working folder, by name. */
+      /** The agent's working folder, by name. */
       folder: string | undefined;
-      /** Claude's last reply, for a finished turn. */
+      /** The agent's last reply, for a finished turn. */
       reply: string | undefined;
-      /** Claude Code's own words about what it waits for. */
+      /** The agent's own words about what it waits for. */
       detail: string | undefined;
     };
+
+export type { AgentKind };
+
+export type AgentEvent = Extract<FinishedEvent, { kind: AgentKind }>;
+
+export const AGENT_NAMES: Record<AgentKind, string> = { claude: 'Claude Code', codex: 'Codex' };
+
+export function isAgent(event: FinishedEvent): event is AgentEvent {
+  return event.kind === 'claude' || event.kind === 'codex';
+}
 
 export type Outcome =
   | { kind: 'succeeded' }
@@ -46,6 +56,7 @@ export function outcomeOf(event: FinishedEvent): Outcome {
     case 'debug':
       return { kind: 'finished' };
     case 'claude':
+    case 'codex':
       return event.state === 'finished' ? { kind: 'finished' } : { kind: 'needs-you' };
   }
 }

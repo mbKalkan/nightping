@@ -38,12 +38,14 @@ writeFileSync(
 const folder = mkdtempSync(join(tmpdir(), 'nightping-smoke-folder-'));
 // Claude Code's settings for the test, away from the developer's own ~/.claude.
 const claudeDir = mkdtempSync(join(tmpdir(), 'nightping-smoke-claude-'));
+// And Codex's, away from the developer's own ~/.codex.
+const codexDir = mkdtempSync(join(tmpdir(), 'nightping-smoke-codex-'));
 try {
   await runTests({
     version: process.env.VSCODE_VERSION ?? 'stable',
     extensionDevelopmentPath: root,
     extensionTestsPath: suite,
-    extensionTestsEnv: { CLAUDE_CONFIG_DIR: claudeDir },
+    extensionTestsEnv: { CLAUDE_CONFIG_DIR: claudeDir, CODEX_HOME: codexDir },
     launchArgs: [
       folder,
       '--disable-extensions',
@@ -54,7 +56,7 @@ try {
     ],
   });
 } finally {
-  for (const dir of [userData, folder, claudeDir]) {
+  for (const dir of [userData, folder, claudeDir, codexDir]) {
     rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 });
   }
 }

@@ -195,3 +195,34 @@ describe('Claude Code', () => {
     });
   });
 });
+
+describe('Codex', () => {
+  it('reads like Claude Code, under its own name', () => {
+    const finished: FinishedEvent = {
+      kind: 'codex',
+      state: 'finished',
+      durationMs: 90_000,
+      folder: 'shop',
+      reply: 'Renamed foo to bar. Tests pass.',
+      detail: undefined,
+    };
+    expect(formatEvent(english, finished, 'details', 'workspace')).toEqual({
+      title: 'Codex · shop',
+      message: 'Finished · 1m 30s\nRenamed foo to bar.',
+      tags: ['white_check_mark'],
+    });
+    const approval: FinishedEvent = {
+      ...finished,
+      state: 'approval',
+      durationMs: undefined,
+      reply: undefined,
+      detail: 'Run the tests',
+    };
+    expect(formatEvent(english, approval, 'details', undefined)).toEqual({
+      title: 'Codex · shop',
+      message: 'Needs your approval\nRun the tests',
+      tags: ['warning'],
+      priority: 4,
+    });
+  });
+});

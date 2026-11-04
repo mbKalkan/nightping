@@ -1,12 +1,17 @@
 import * as vscode from 'vscode';
-import type { HostToWebviewMessage, PanelState, WebviewToHostMessage } from '../shared/protocol';
+import type {
+  AgentKind,
+  HostToWebviewMessage,
+  PanelState,
+  WebviewToHostMessage,
+} from '../shared/protocol';
 import { isServerUrl, isToken, isTopic, normalizeServer } from './config';
 import { samplePreviews } from './format';
 import type { History } from './history';
 import { readMessage } from './message';
 import type { Message } from './ntfy';
 import type { Pauser } from './pause';
-import type { ClaudeBridge } from './claude/bridge';
+import type { AgentBridge } from './agentBridge';
 import { settingFor } from './prefs';
 import {
   currentDestination,
@@ -20,6 +25,23 @@ import { buildWebviewHtml } from './webviewHtml';
 
 export const PANEL_VIEW_TYPE = 'nightping.panel';
 
+/** The commands behind each agent card's buttons. */
+const AGENT_COMMANDS: Record<
+  AgentKind,
+  Record<'connectAgent' | 'disconnectAgent' | 'copyAgentSettings', string>
+> = {
+  claude: {
+    connectAgent: 'nightping.connectClaudeCode',
+    disconnectAgent: 'nightping.disconnectClaudeCode',
+    copyAgentSettings: 'nightping.copyClaudeCodeSettings',
+  },
+  codex: {
+    connectAgent: 'nightping.connectCodex',
+    disconnectAgent: 'nightping.disconnectCodex',
+    copyAgentSettings: 'nightping.copyCodexSettings',
+  },
+};
+
 const SHELL_INTEGRATION_HELP = 'https://code.visualstudio.com/docs/terminal/shell-integration';
 
 export interface PanelContext {
@@ -28,7 +50,8 @@ export interface PanelContext {
   history: History;
   sender: Sender;
   pauser: Pauser;
-  claude: ClaudeBridge;
+  claude: AgentBridge;
+  codex: AgentBridge;
 }
 
 /** The one Nightping panel: shown again rather than opened twice. */
@@ -77,6 +100,7 @@ export class Panel {
       context.history.onDidChange(() => void this.update()),
       context.pauser.onDidChange(() => void this.update()),
       context.claude.onDidChange(() => void this.update()),
+      context.codex.onDidChange(() => void this.update()),
       vscode.window.onDidOpenTerminal(() => void this.update()),
       vscode.window.onDidCloseTerminal(() => void this.update()),
       vscode.window.onDidChangeTerminalShellIntegration(() => void this.update()),
@@ -149,15 +173,13 @@ export class Panel {
       case 'resume':
         await vscode.commands.executeCommand('nightping.resume');
         return;
-      case 'connectClaude':
-        await vscode.commands.executeCommand('nightping.connectClaudeCode');
+      case 'connectAgent':
+      case 'disconnectAgent':
+      case 'copyAgentSettings': {
+        const command = AGENT_COMMANDS[message.agent]?.[message.type];
+        if (command) await vscode.commands.executeCommand(command);
         return;
-      case 'disconnectClaude':
-        await vscode.commands.executeCommand('nightping.disconnectClaudeCode');
-        return;
-      case 'copyClaudeSettings':
-        await vscode.commands.executeCommand('nightping.copyClaudeCodeSettings');
-        return;
+      }
       case 'openShellIntegrationHelp':
         await vscode.env.openExternal(vscode.Uri.parse(SHELL_INTEGRATION_HELP));
         return;
@@ -207,6 +229,7 @@ export class Panel {
         reporting: vscode.window.terminals.filter((t) => t.shellIntegration !== undefined).length,
       },
       claude: this.context.claude.status(),
+      codex: this.context.codex.status(),
     };
     if (id === this.updating) this.post({ type: 'state', state });
   }

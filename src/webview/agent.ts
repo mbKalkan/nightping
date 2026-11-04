@@ -1,46 +1,51 @@
-// The "Claude Code" card: whether Nightping's hooks are in Claude Code's settings, buttons to
-// connect, disconnect or copy them, and which window receives the events.
-import type { ClaudeStatus, PanelStrings } from '../shared/protocol';
+// An agent's card ("Claude Code", "Codex"): whether Nightping's hooks are in the agent's settings,
+// buttons to connect, disconnect or copy them, and which window receives the events.
+import type { AgentKind, AgentStatus, AgentStrings } from '../shared/protocol';
 import { button, element } from './dom';
 import { vscode } from './vscodeApi';
 
 /** The status dot, as the header's status uses it. */
-const DOT: Record<ClaudeStatus['hooks'], string> = {
+const DOT: Record<AgentStatus['hooks'], string> = {
   connected: 'ready',
   outdated: 'invalid',
   disconnected: 'incomplete',
   invalid: 'error',
 };
 
-export class ClaudeCard {
-  readonly element = element('div', 'ng-claude');
+export class AgentCard {
+  readonly element = element('div', 'ng-agent');
   private readonly state = element('span', 'ng-status');
   private readonly help = element('p', 'ng-help');
   private readonly connect: HTMLButtonElement;
   private readonly disconnect: HTMLButtonElement;
   private readonly receivingField = element('div', 'ng-field');
-  private readonly receiving = element('p', 'ng-claude-receiving');
+  private readonly receiving = element('p', 'ng-agent-receiving');
 
-  constructor(private readonly strings: PanelStrings['claude']) {
+  constructor(
+    agent: AgentKind,
+    private readonly strings: AgentStrings,
+  ) {
     this.connect = button(strings.connect, 'primary');
     this.disconnect = button(strings.disconnect, 'secondary');
     const copy = button(strings.copy, 'secondary');
-    this.connect.addEventListener('click', () => vscode.postMessage({ type: 'connectClaude' }));
-    this.disconnect.addEventListener('click', () =>
-      vscode.postMessage({ type: 'disconnectClaude' }),
+    this.connect.addEventListener('click', () =>
+      vscode.postMessage({ type: 'connectAgent', agent }),
     );
-    copy.addEventListener('click', () => vscode.postMessage({ type: 'copyClaudeSettings' }));
+    this.disconnect.addEventListener('click', () =>
+      vscode.postMessage({ type: 'disconnectAgent', agent }),
+    );
+    copy.addEventListener('click', () => vscode.postMessage({ type: 'copyAgentSettings', agent }));
 
-    const hooks = field('ng-claude-hooks', strings.hooks);
+    const hooks = field(`ng-${agent}-hooks`, strings.hooks);
     this.state.setAttribute('role', 'status');
-    const stateRow = element('div', 'ng-claude-state');
+    const stateRow = element('div', 'ng-agent-state');
     stateRow.append(this.state);
-    const actions = element('div', 'ng-claude-actions');
+    const actions = element('div', 'ng-agent-actions');
     actions.append(this.connect, this.disconnect, copy);
     hooks.body.append(stateRow, actions, this.help);
 
     const receivingLabel = element('span', 'ng-label', strings.receiving);
-    receivingLabel.id = 'ng-claude-receiving-label';
+    receivingLabel.id = `ng-${agent}-receiving-label`;
     const receivingBody = element('div', 'ng-field-body ng-stack');
     receivingBody.setAttribute('role', 'group');
     receivingBody.setAttribute('aria-labelledby', receivingLabel.id);
@@ -51,7 +56,7 @@ export class ClaudeCard {
     this.element.append(hooks.element, this.receivingField);
   }
 
-  show(status: ClaudeStatus): void {
+  show(status: AgentStatus): void {
     const s = this.strings;
     this.state.textContent = s.state[status.hooks];
     this.state.dataset.status = DOT[status.hooks];
@@ -61,7 +66,9 @@ export class ClaudeCard {
     this.connect.textContent = status.hooks === 'outdated' ? s.reconnect : s.connect;
     this.disconnect.hidden = status.hooks === 'disconnected' || status.hooks === 'invalid';
 
-    this.receivingField.hidden = status.receiving === 'off';
+    // The endpoint is shared: it may run for another agent while this one is not connected.
+    const connected = status.hooks === 'connected' || status.hooks === 'outdated';
+    this.receivingField.hidden = !connected || status.receiving === 'off';
     this.receiving.textContent = s.receivingState[status.receiving].replace(
       '{0}',
       String(status.port),

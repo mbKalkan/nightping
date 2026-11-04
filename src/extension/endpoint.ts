@@ -1,10 +1,15 @@
-// The local endpoint that Claude Code's hooks post to. It listens on 127.0.0.1 only, takes only
-// JSON posts of limited size to one path, and answers at once so that Claude never waits.
+// The local endpoint that AI agents' hooks post to, each to its own path. It listens on 127.0.0.1
+// only, takes only JSON posts of limited size, and answers at once so that an agent never waits.
 // One VS Code window holds the port; the others retry every 2 seconds and take over when it
 // closes. No VS Code here, so tests run it on a real socket.
 import * as http from 'node:http';
 
-export const HOOK_PATH = '/nightping/claude-code';
+/** Where each agent's hooks post. */
+export const AGENT_PATHS = {
+  claude: '/nightping/claude-code',
+  codex: '/nightping/codex',
+} as const;
+export type Agent = keyof typeof AGENT_PATHS;
 export const STATUS_PATH = '/nightping/status';
 const BODY_LIMIT = 1024 * 1024;
 export const RETRY_MS = 2000;
@@ -22,15 +27,27 @@ export class Endpoint {
   private retry: ReturnType<typeof setTimeout> | undefined;
   private port: number | undefined;
   private current: EndpointState = { kind: 'off' };
+  /** The agents connected to Nightping, and the port their hooks use. */
+  private readonly needs = new Map<Agent, number>();
 
   constructor(
-    private readonly onPayload: (payload: unknown) => void,
+    private readonly onPayload: (agent: Agent, payload: unknown) => void,
     private readonly onState: (state: EndpointState) => void = () => {},
     private readonly retryMs = RETRY_MS,
   ) {}
 
   get state(): EndpointState {
     return this.current;
+  }
+
+  /** Listens while at least one agent's hooks are connected; `undefined` when they are not. */
+  need(agent: Agent, port: number | undefined): void {
+    if (port === undefined) this.needs.delete(agent);
+    else this.needs.set(agent, port);
+    // Every agent reads the same port setting, so they agree on the port.
+    const [wanted] = this.needs.values();
+    if (wanted === undefined) this.stop();
+    else this.start(wanted);
   }
 
   /** Listens on `port`, or keeps trying while another program or window holds it. */
@@ -100,7 +117,10 @@ export class Endpoint {
       answer(200, '{"app":"nightping"}');
       return;
     }
-    if (request.url !== HOOK_PATH) {
+    const agent = (Object.keys(AGENT_PATHS) as Agent[]).find(
+      (name) => AGENT_PATHS[name] === request.url,
+    );
+    if (agent === undefined) {
       answer(404);
       return;
     }
@@ -131,10 +151,10 @@ export class Endpoint {
         answer(400);
         return;
       }
-      // No body: a JSON answer could tell Claude Code to block or keep working. An empty
-      // success lets it go on as if there were no hook.
+      // No body: a JSON answer could tell an agent to block or keep working. An empty success
+      // lets it go on as if there were no hook.
       answer(204);
-      this.onPayload(payload);
+      this.onPayload(agent, payload);
     });
   }
 
