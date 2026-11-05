@@ -77,6 +77,26 @@ export async function publish(
   return { ok: false, reason: 'http', status, detail: serverError(body) };
 }
 
+export const HEALTH_TIMEOUT_MS = 5000;
+
+/**
+ * Whether ntfy already runs at this address. Its health check answers without a token, even on a
+ * server where every topic is private.
+ */
+export async function isRunning(server: string, timeoutMs = HEALTH_TIMEOUT_MS): Promise<boolean> {
+  try {
+    const response = await fetch(`${server}/v1/health`, {
+      redirect: 'manual',
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (response.status !== 200) return false;
+    const body = JSON.parse(await response.text()) as { healthy?: unknown } | null;
+    return body?.healthy === true;
+  } catch {
+    return false;
+  }
+}
+
 function isTimeout(error: unknown): boolean {
   return (error as { name?: unknown } | null)?.name === 'TimeoutError';
 }

@@ -20,11 +20,11 @@ import {
 import { samplePreviews } from './format';
 import type { History } from './history';
 import { readMessage } from './message';
-import type { Message } from './ntfy';
+import { isRunning, type Message } from './ntfy';
 import type { Pauser } from './pause';
 import type { AgentBridge } from './agentBridge';
 import { settingFor } from './prefs';
-import { currentPrefs, type Sender } from './sender';
+import { currentPrefs, type Sender, type SendOutcome } from './sender';
 import { tailscaleStatus } from './tailscale';
 import { notReadyText, panelStrings, testMessage } from './texts';
 import { buildWebviewHtml } from './webviewHtml';
@@ -200,6 +200,13 @@ export class Panel {
       case 'findTailscale':
         this.post({ type: 'tailscale', status: await tailscaleStatus() });
         return;
+      case 'checkServer': {
+        // Only an address the user chose in the guide, and only its health check.
+        const server = typeof message.server === 'string' ? normalizeServer(message.server) : '';
+        if (!isServerUrl(server)) return;
+        this.post({ type: 'serverCheck', server, running: await isRunning(server) });
+        return;
+      }
       case 'send': {
         // The panel waits for an answer, so even a message it should not have sent gets one.
         const typed = readMessage(
@@ -281,15 +288,22 @@ export class Panel {
   private async sendTest(key?: string): Promise<void> {
     this.post({ type: 'busy', busy: true });
     try {
-      const error = await this.deliver(testMessage(vscode.l10n.t), key);
+      const outcome = await this.context.sender.send(testMessage(vscode.l10n.t), key);
       const entry = key
         ? currentDestinations().entries.find((item) => item.key === key)
         : undefined;
+      const refused =
+        outcome.kind === 'failed' &&
+        outcome.failures.length === 1 &&
+        outcome.failures[0].result.reason === 'unauthorized'
+          ? outcome.failures[0].destination.key
+          : undefined;
       this.post({
         type: 'result',
         time: Date.now(),
-        error,
+        error: this.reason(outcome),
         ...(entry ? { to: displayName(entry) } : {}),
+        ...(refused ? { needsToken: refused } : {}),
       });
     } finally {
       this.post({ type: 'busy', busy: false });
@@ -297,8 +311,11 @@ export class Panel {
   }
 
   /** Sends, and says why when nothing went out. */
-  private async deliver(message: Message, only?: string): Promise<string | undefined> {
-    const outcome = await this.context.sender.send(message, only);
+  private async deliver(message: Message): Promise<string | undefined> {
+    return this.reason(await this.context.sender.send(message));
+  }
+
+  private reason(outcome: SendOutcome): string | undefined {
     switch (outcome.kind) {
       case 'sent':
         return undefined;

@@ -65,12 +65,14 @@ On an iPhone, notifications from your own server arrive at once only when the se
 [Tailscale](https://tailscale.com) joins your devices in a private network, so an ntfy server on one of your computers is reachable from your phone and nowhere else. Choose **Your own server over Tailscale** in the panel; it walks you through five steps:
 
 1. **Put Tailscale on your devices**: this computer, the computer that will run the server (this one works too) and your phone, signed in to the same account. The panel checks the `tailscale` command on this computer and says whether it is installed, signed in and connected.
-2. **Choose the server** from your Tailscale computers. Nightping reads them from `tailscale status` on this computer, only when you open this guide; the list stays in the panel. Picking one fills in its address, `https://<computer>.<tailnet>.ts.net`. This needs MagicDNS, which Tailscale turns on by default.
+2. **Choose the server** from your Tailscale computers. Nightping reads them from `tailscale status` on this computer, only when you open this guide; the list stays in the panel. Picking one fills in its address, `https://<computer>.<tailnet>.ts.net`. This needs MagicDNS, which Tailscale turns on by default. Nightping then asks that address whether ntfy already runs there (its health check, `/v1/health`, without a token); if it does, the guide leaves out step 3 and asks for the topic your phone already gets.
 3. **Run ntfy on it**: the panel shows two commands with the address filled in, each with **Copy**. The first starts ntfy with Docker, listening only on the server itself; the second, `tailscale serve --bg 2586`, lets only your Tailscale devices reach it over HTTPS. Without Docker, [install ntfy another way](https://docs.ntfy.sh/install/), have it listen on port 2586, and run the second command. The first time, `tailscale serve` shows a link to turn on HTTPS certificates for your tailnet.
 4. **Subscribe on your phone**: install the ntfy app, turn Tailscale on, tap **+**, turn on **Use another server**, enter the server's address and the topic.
 5. **Name it and send a test.**
 
 The command also sets `upstream-base-url`, so an iPhone gets notifications at once; the iPhone still fetches the message from your server, so Tailscale has to be on there.
+
+**Another computer, same server.** On the next computer, install Tailscale and Nightping, choose **Your own server over Tailscale** and pick the server. The guide sees that ntfy already runs there, so it only asks for the topic your phone is subscribed to. If the server keeps its topics private, the first test says it needs an access token; **Set Access Token** under the result opens the field for it.
 
 ### Let your AI agent do a step
 
@@ -82,13 +84,13 @@ The steps an AI agent can do on a computer have a **Delegate to Agent** button: 
 
 ### If it does not arrive
 
-The card says why: the server needs an access token or refused it, redirects to another address, cannot be reached, or does not answer within 10 seconds. **Recent notifications** keeps what Nightping sent, and the reason for anything that did not go out. The list stays on this computer.
+The card says why: the server needs an access token or refused it (then **Set Access Token** opens the field for it), redirects to another address, cannot be reached, or does not answer within 10 seconds. For a Tailscale address it adds that Tailscale has to be connected on this computer and the server computer on. **Recent notifications** keeps what Nightping sent, and the reason for anything that did not go out. The list stays on this computer.
 
 Behind a proxy, Nightping goes through the proxy VS Code uses: the `http.proxy` setting, or the system's proxy when that setting is empty. This needs VS Code 1.96 or later.
 
 ### Your server, your settings
 
-- Requests go only to the servers you entered. There is no telemetry and no other network traffic.
+- Requests go only to the servers you entered, or picked in the Tailscale guide. There is no telemetry and no other network traffic.
 - By default a notification contains only the kind of event, the result and the duration. The workspace name, task names, command lines and file names are added only if you choose them under **Content**.
 - The destinations are a user setting, `nightping.destinations`, so Settings Sync takes them to your other computers. Access tokens stay in VS Code's secret storage on each computer, one per server, never in the settings; enter them again on another computer in the panel (**Edit**) or with **Nightping: Set Access Token…**.
 - Prefer the keyboard? **Nightping: Add a Destination…** asks for the server, topic and token in the Command Palette (for Tailscale it opens the panel's guide), and **Send Test Notification**, **Remove a Destination…**, **Set Access Token…** and **Clear Access Token** are there too.

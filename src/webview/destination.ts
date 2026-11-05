@@ -24,6 +24,9 @@ export class DestinationCard {
   private readonly chooserCancel: HTMLButtonElement;
   private readonly form: DestinationForm;
   private readonly result = element('p', 'ng-result');
+  /** Under a test that the server refused for want of a token. */
+  private readonly setToken: HTMLButtonElement;
+  private needsToken: string | undefined;
   private destinations: DestinationView[] = [];
   private view: View = 'list';
   private busy = false;
@@ -59,13 +62,29 @@ export class DestinationCard {
 
     this.result.setAttribute('role', 'status');
     this.result.setAttribute('aria-live', 'polite');
-    this.element.append(this.list, addRow, this.chooser, this.form.element, this.result);
+    this.setToken = button(s.enterToken, 'secondary');
+    this.setToken.classList.add('ng-result-action');
+    this.setToken.hidden = true;
+    this.element.append(
+      this.list,
+      addRow,
+      this.chooser,
+      this.form.element,
+      this.result,
+      this.setToken,
+    );
 
     this.add.addEventListener('click', () => {
       this.show('choose');
       this.chooser.querySelector<HTMLElement>('.ng-way')?.focus();
     });
     this.chooserCancel.addEventListener('click', () => this.show('list'));
+    this.setToken.addEventListener('click', () => {
+      const destination = this.destinations.find((item) => item.key === this.needsToken);
+      if (!destination) return;
+      this.openForm({ way: 'edit', destination });
+      this.form.openToken();
+    });
   }
 
   show(view: View): void;
@@ -88,6 +107,13 @@ export class DestinationCard {
     this.chooser.hidden = this.view !== 'choose';
     this.chooserCancel.hidden = this.destinations.length === 0;
     this.form.element.hidden = this.view !== 'form';
+    this.placeSetToken();
+  }
+
+  /** Under the result while the destination it is for is in the list. */
+  private placeSetToken(): void {
+    this.setToken.hidden =
+      this.view !== 'list' || !this.destinations.some((item) => item.key === this.needsToken);
   }
 
   /** The Command Palette asked for a way's guide. */
@@ -114,9 +140,9 @@ export class DestinationCard {
     this.say(error, true);
   }
 
-  sent(time: number, error?: string, to?: string): void {
+  sent(time: number, error?: string, to?: string, needsToken?: string): void {
     if (error !== undefined) {
-      this.say(error, true);
+      this.say(error, true, needsToken);
     } else if (to !== undefined) {
       this.say(this.s.sentTo.replace('{0}', this.time(time)).replace('{1}', to));
     } else {
@@ -128,6 +154,10 @@ export class DestinationCard {
     this.form.showTailscale(status);
   }
 
+  serverCheck(server: string, running: boolean): void {
+    this.form.serverCheck(server, running);
+  }
+
   private openForm(mode: FormMode): void {
     this.say('');
     this.form.open(mode, this.destinations);
@@ -135,10 +165,12 @@ export class DestinationCard {
     this.form.focus();
   }
 
-  private say(text: string, failed = false): void {
+  private say(text: string, failed = false, needsToken?: string): void {
     this.result.textContent = text;
     this.result.classList.toggle('ng-failed', failed);
     this.result.classList.toggle('ng-ok', !failed && text !== '');
+    this.needsToken = needsToken;
+    this.placeSetToken();
   }
 
   private renderList(): void {
