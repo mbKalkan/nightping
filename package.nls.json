@@ -3,7 +3,7 @@
   "description": "Phone push notifications when tasks, terminal commands, notebook cells, debug sessions, Claude Code, Codex or GitHub Copilot finish or need you, through your own ntfy server or ntfy.sh topic. Send your own messages too. No default server, no telemetry.",
   "category": "Nightping",
   "command.open": "Open",
-  "command.setUp": "Set Up…",
+  "command.setUp": "Add a Destination…",
   "command.sendTest": "Send Test Notification",
   "command.send": "Send Message…",
   "command.pause": "Pause Notifications…",
@@ -35,5 +35,12 @@
   "config.content.result": "The kind of run, its result and duration, for example `Task` / `Failed (exit 1) · 4m 12s`.",
   "config.content.folder": "Also the workspace name.",
   "config.content.details": "Also the task name, command line, notebook file name or debug configuration name.",
-  "config.port": "Port on `127.0.0.1` where Nightping receives Claude Code's events. After a change, reconnect Claude Code so that its hooks use the new port."
+  "config.port": "Port on `127.0.0.1` where Nightping receives Claude Code's events. After a change, reconnect Claude Code so that its hooks use the new port.",
+  "command.removeDestination": "Remove a Destination…",
+  "config.destinations": "Where notifications go: each entry is a topic on an ntfy server, and every entry that is on gets every notification. Add them from the Nightping panel (**Nightping: Open**) or with **Nightping: Add a Destination…**. Nightping has no default server and sends nothing until there is one. Access tokens are kept in secret storage, one per server, not here.",
+  "config.destinations.name": "What the Nightping panel calls it. Left out, it shows the server’s host.",
+  "config.destinations.server": "URL of the ntfy server, for example `https://ntfy.sh` or `https://ntfy.example.com`.",
+  "config.destinations.topic": "ntfy topic to publish to: letters, numbers, `-` and `_`, up to 64 characters. On a public server anyone who knows it can read it.",
+  "config.destinations.enabled": "Set to `false` to keep the destination but send nothing to it.",
+  "config.server.deprecated": "Replaced by `#nightping.destinations#`: Nightping moves this value there when it starts."
 }

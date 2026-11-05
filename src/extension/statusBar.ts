@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import type { SentEntry } from '../shared/protocol';
-import type { DestinationState } from './config';
+import { displayName, type DestinationEntry, type DestinationsState } from './config';
 import type { Pause } from './pause';
 
 /**
@@ -19,23 +19,22 @@ export class StatusBar implements vscode.Disposable {
     this.item.command = 'nightping.open';
   }
 
-  show(state: DestinationState, pause: Pause | undefined, last: SentEntry | undefined): void {
+  show(state: DestinationsState, pause: Pause | undefined, last: SentEntry | undefined): void {
     if (state.kind === 'ready') {
       // Not a bell: VS Code's own notification bell sits right next to it.
       this.item.text = pause ? `$(device-mobile) ${vscode.l10n.t('Paused')}` : '$(device-mobile)';
-      this.item.tooltip = readyTooltip(state.destination, pause, last);
+      const on = state.entries.filter((entry) => entry.enabled && entry.problem === undefined);
+      this.item.tooltip = readyTooltip(on, pause, last);
       this.item.backgroundColor = undefined;
     } else {
       this.item.text = '$(bell-slash) Nightping';
       this.item.tooltip =
         state.kind === 'incomplete'
-          ? vscode.l10n.t('Nightping is not set up yet. Click to enter your ntfy server and topic.')
-          : state.setting === 'server'
-            ? vscode.l10n.t(
-                'The ntfy server in the settings is not a valid http or https URL. Click to fix it.',
-              )
+          ? vscode.l10n.t('Nightping is not set up yet. Click to choose where notifications go.')
+          : state.kind === 'off'
+            ? vscode.l10n.t('Every destination is turned off. Click to turn one on.')
             : vscode.l10n.t(
-                'The ntfy topic in the settings can only use letters, numbers, - and _ (up to 64). Click to fix it.',
+                'The ntfy server or topic in the settings is not valid. Click to fix it.',
               );
       this.item.backgroundColor =
         state.kind === 'invalid'
@@ -51,7 +50,7 @@ export class StatusBar implements vscode.Disposable {
 }
 
 function readyTooltip(
-  destination: { server: string; topic: string },
+  destinations: DestinationEntry[],
   pause: Pause | undefined,
   last: SentEntry | undefined,
 ): vscode.MarkdownString {
@@ -62,7 +61,9 @@ function readyTooltip(
     pause === undefined
       ? vscode.l10n.t(
           'Nightping sends notifications to {0}.',
-          `${destination.server}/${destination.topic}`,
+          destinations.length === 1
+            ? `${destinations[0].server}/${destinations[0].topic}`
+            : destinations.map((entry) => displayName(entry)).join(', '),
         )
       : pause.until === undefined
         ? vscode.l10n.t('Nightping is paused until you resume.')

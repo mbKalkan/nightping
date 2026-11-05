@@ -6,8 +6,10 @@ import { DEFAULT_PREFS } from '../../src/extension/prefs';
 import { panelStrings, type Translate } from '../../src/extension/texts';
 import { buildWebviewHtml } from '../../src/extension/webviewHtml';
 import type {
+  DestinationView,
   HostToWebviewMessage,
   PanelState,
+  TailscaleView,
   WebviewToHostMessage,
 } from '../../src/shared/protocol';
 import { themes, type ThemeName } from './themes';
@@ -132,9 +134,7 @@ export async function openPanel(page: Page, theme: ThemeName) {
 }
 
 export const notSetUp: PanelState = {
-  server: '',
-  topic: '',
-  hasToken: false,
+  destinations: [],
   status: 'incomplete',
   history: [],
   prefs: DEFAULT_PREFS,
@@ -166,10 +166,18 @@ export const notSetUp: PanelState = {
 const NOW = Date.now();
 const MINUTE = 60_000;
 
-export const ready: PanelState = {
+/** A destination on one's own server, with a saved token. */
+export const ownServer: DestinationView = {
+  key: 'https://ntfy.example.com/my-topic',
+  name: '',
   server: 'https://ntfy.example.com',
   topic: 'my-topic',
+  enabled: true,
   hasToken: true,
+};
+
+export const ready: PanelState = {
+  destinations: [ownServer],
   status: 'ready',
   prefs: DEFAULT_PREFS,
   previews: samplePreviews(english, 'my-project'),
@@ -212,6 +220,52 @@ export const ready: PanelState = {
       title: 'Nightping test',
       message: 'Notifications from VS Code will arrive like this.',
       error: 'Could not reach https://ntfy.example.com (ENOTFOUND).',
+    },
+  ],
+};
+
+/** ntfy.sh on the phone, and a home server over Tailscale that is turned off. */
+export const twoDestinations: PanelState = {
+  ...ready,
+  destinations: [
+    {
+      key: 'https://ntfy.sh/nightping-abc',
+      name: 'Phone',
+      server: 'https://ntfy.sh',
+      topic: 'nightping-abc',
+      enabled: true,
+      hasToken: false,
+    },
+    {
+      key: 'https://box.tail1234.ts.net/alerts',
+      name: 'Home server',
+      server: 'https://box.tail1234.ts.net',
+      topic: 'alerts',
+      enabled: false,
+      hasToken: true,
+    },
+  ],
+};
+
+/** What the tailscale command says on a computer that is on a tailnet with one server. */
+export const tailscaleReady: TailscaleView = {
+  kind: 'ready',
+  name: 'desk',
+  magicDns: true,
+  devices: [
+    {
+      name: 'desk',
+      os: 'windows',
+      online: true,
+      self: true,
+      address: 'https://desk.tail1234.ts.net',
+    },
+    {
+      name: 'box',
+      os: 'linux',
+      online: false,
+      self: false,
+      address: 'https://box.tail1234.ts.net',
     },
   ],
 };

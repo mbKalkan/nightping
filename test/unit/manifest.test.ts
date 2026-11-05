@@ -42,8 +42,9 @@ describe('extension manifest', () => {
     expect(manifest.dependencies ?? {}).toEqual({});
   });
 
-  it('ships no default server or topic', () => {
+  it('ships no default destination', () => {
     const { properties } = manifest.contributes.configuration;
+    expect(properties['nightping.destinations'].default).toEqual([]);
     expect(properties['nightping.server'].default).toBe('');
     expect(properties['nightping.topic'].default).toBe('');
   });

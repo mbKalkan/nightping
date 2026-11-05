@@ -1,5 +1,12 @@
 import './styles/panel.css';
-import type { HostToWebviewMessage, PanelState, PanelStrings, SentEntry } from '../shared/protocol';
+import type {
+  HostToWebviewMessage,
+  PanelState,
+  PanelStrings,
+  SentEntry,
+  SetupWay,
+  TailscaleView,
+} from '../shared/protocol';
 import { DestinationCard } from './destination';
 import { button, element } from './dom';
 import { MessageCard } from './message';
@@ -53,8 +60,8 @@ class PanelView {
     header.append(heading, side);
 
     // Where notifications go, then when they come, then the rest.
-    this.destination = new DestinationCard(strings, clock);
-    const destination = this.card(strings.destination);
+    this.destination = new DestinationCard(strings.destinations, strings.sending, clock);
+    const destination = this.card(strings.destinations.title);
     destination.append(this.destination.element);
 
     this.notify = new NotifyCard(strings, locale);
@@ -102,8 +109,20 @@ class PanelView {
     this.destination.saved();
   }
 
-  sent(time: number, error?: string): void {
-    this.destination.sent(time, error);
+  notSaved(error: string): void {
+    this.destination.notSaved(error);
+  }
+
+  sent(time: number, error?: string, to?: string): void {
+    this.destination.sent(time, error, to);
+  }
+
+  tailscale(status: TailscaleView): void {
+    this.destination.showTailscale(status);
+  }
+
+  guide(way: SetupWay): void {
+    this.destination.guide(way);
   }
 
   messageSent(time: number, error?: string): void {
@@ -147,7 +166,9 @@ class PanelView {
   private renderHistory(entries: SentEntry[]): void {
     this.history.replaceChildren(
       ...entries.map((entry) => {
-        const item = element('li', `ng-entry ${entry.error === undefined ? 'ng-ok' : 'ng-failed'}`);
+        const kind =
+          entry.error === undefined ? 'ng-ok' : entry.partial ? 'ng-partial' : 'ng-failed';
+        const item = element('li', `ng-entry ${kind}`);
         const when = element('time', 'ng-when');
         const date = new Date(entry.time);
         when.dateTime = date.toISOString();
@@ -165,7 +186,11 @@ class PanelView {
         const outcome = element(
           'span',
           'ng-outcome',
-          entry.error === undefined ? this.strings.sent : this.strings.notSent,
+          entry.error === undefined
+            ? this.strings.sent
+            : entry.partial
+              ? this.strings.partlySent
+              : this.strings.notSent,
         );
         item.append(when, body, outcome);
         return item;
@@ -190,8 +215,14 @@ window.addEventListener('message', (event: MessageEvent<HostToWebviewMessage>) =
     panel?.setBusy(message.busy);
   } else if (message.type === 'saved') {
     panel?.saved();
+  } else if (message.type === 'notSaved') {
+    panel?.notSaved(message.error);
   } else if (message.type === 'result') {
-    panel?.sent(message.time, message.error);
+    panel?.sent(message.time, message.error, message.to);
+  } else if (message.type === 'tailscale') {
+    panel?.tailscale(message.status);
+  } else if (message.type === 'guide') {
+    panel?.guide(message.way);
   } else if (message.type === 'messageResult') {
     panel?.messageSent(message.time, message.error);
   }

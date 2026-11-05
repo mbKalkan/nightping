@@ -1,5 +1,10 @@
 // Publishes one message to an ntfy server. Pure: no VS Code, so tests run it against a fake server.
-import type { Destination } from './config';
+/** Where one message goes. */
+export interface Target {
+  /** Without a trailing slash. */
+  server: string;
+  topic: string;
+}
 
 export interface Message {
   title: string;
@@ -27,7 +32,7 @@ export const TIMEOUT_MS = 10_000;
 const DETAIL_LIMIT = 200;
 
 export async function publish(
-  destination: Destination,
+  destination: Target,
   message: Message,
   options: PublishOptions = {},
 ): Promise<PublishResult> {

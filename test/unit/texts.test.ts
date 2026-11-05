@@ -61,9 +61,12 @@ describe('failureText', () => {
 
 describe('panelStrings', () => {
   it('leaves the time placeholder for the panel to fill', () => {
-    expect(panelStrings(english).sentAt).toBe(
-      'Sent at {0}. If it is not on your phone, subscribe to this topic in the ntfy app.',
+    const { destinations } = panelStrings(english);
+    expect(destinations.sentAt).toBe(
+      'Sent at {0}. If it is not on your phone, check that the app is subscribed to the topic.',
     );
-    expect(panelStrings(english).sendingTo).toBe('Notifications go to the topic {0} on {1}.');
+    expect(destinations.sentTo).toMatch(/^Sent to \{1\} at \{0\}\./);
+    expect(destinations.topicOn).toBe('Topic {0} on {1}');
+    expect(destinations.steps.topicOwn.help).toContain('{0}');
   });
 });

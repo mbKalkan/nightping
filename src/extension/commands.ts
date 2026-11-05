@@ -1,10 +1,21 @@
 // The command palette way to do what the panel does.
 import * as vscode from 'vscode';
 import type { AgentBridge } from './agentBridge';
-import { isServerUrl, isToken, isTopic, normalizeServer, suggestTopic } from './config';
+import { hostOf, NTFY_SH } from '../shared/destination';
+import type { SetupWay } from '../shared/protocol';
+import {
+  destinationKey,
+  displayName,
+  isServerUrl,
+  isToken,
+  isTopic,
+  normalizeServer,
+  suggestTopic,
+} from './config';
+import { currentDestinations, removeDestination, saveDestination, tokenKey } from './destinations';
 import { readMessage } from './message';
 import { isPauseMinutes, PAUSE_MINUTES, type Pauser } from './pause';
-import { saveDestination, TOKEN_KEY, type Sender, type SendOutcome } from './sender';
+import type { Sender, SendOutcome } from './sender';
 import { notReadyText, testMessage } from './texts';
 
 export interface Services {
@@ -12,6 +23,8 @@ export interface Services {
   sender: Sender;
   pauser: Pauser;
   claude: AgentBridge;
+  /** Opens the panel at a way's guide. */
+  openGuide: (way: SetupWay) => void;
 }
 
 /**
@@ -93,95 +106,157 @@ function pauseLength(minutes: number): string {
 interface Action {
   title: string;
   command: string;
+  args?: unknown[];
 }
 
-const setUpAction = (): Action => ({ title: vscode.l10n.t('Set Up…'), command: 'nightping.setUp' });
-const setTokenAction = (): Action => ({
+const setUpAction = (): Action => ({
+  title: vscode.l10n.t('Set Up…'),
+  command: 'nightping.setUp',
+});
+const openAction = (): Action => ({
+  title: vscode.l10n.t('Open Nightping'),
+  command: 'nightping.open',
+});
+const setTokenAction = (server: string): Action => ({
   title: vscode.l10n.t('Set Access Token…'),
   command: 'nightping.setToken',
+  args: [server],
 });
-const clearTokenAction = (): Action => ({
+const clearTokenAction = (server: string): Action => ({
   title: vscode.l10n.t('Clear Access Token'),
   command: 'nightping.clearToken',
+  args: [server],
 });
 const sendTestAction = (): Action => ({
   title: vscode.l10n.t('Send Test Notification'),
   command: 'nightping.sendTest',
 });
 
-/** Asks for the server, topic and token, saves them, then sends a test notification. */
+/**
+ * Adds a destination: asks which way, then the server, topic and token, saves them and sends a
+ * test to it. The Tailscale way needs more than questions, so it opens the panel's guide.
+ */
 export async function setUp(services: Services): Promise<void> {
-  const values = vscode.workspace.getConfiguration('nightping');
-  const title = (step: number) => vscode.l10n.t('Set Up Nightping ({0}/3)', step);
-
-  const server = await vscode.window.showInputBox({
-    title: title(1),
-    prompt: vscode.l10n.t('Address of your ntfy server: https://ntfy.sh or your own server.'),
-    placeHolder: 'https://ntfy.sh',
-    value: values.get<string>('server') ?? '',
-    ignoreFocusOut: true,
-    validateInput: serverProblem,
+  const ways: Array<vscode.QuickPickItem & { way: SetupWay }> = [
+    {
+      way: 'ntfy-sh',
+      label: 'ntfy.sh',
+      detail: vscode.l10n.t('A free public server. Ready in two minutes: you only install an app.'),
+    },
+    {
+      way: 'own-server',
+      label: vscode.l10n.t('Your own ntfy server'),
+      detail: vscode.l10n.t(
+        'You already run ntfy, at home or at work, at an address this computer reaches.',
+      ),
+    },
+    {
+      way: 'tailscale',
+      label: vscode.l10n.t('Your own server over Tailscale'),
+      detail: vscode.l10n.t('Opens the step-by-step guide in the Nightping panel.'),
+    },
+  ];
+  const choice = await vscode.window.showQuickPick(ways, {
+    title: vscode.l10n.t('Add a Destination'),
+    placeHolder: vscode.l10n.t('How should notifications reach your phone?'),
   });
-  if (server === undefined) {
+  if (!choice) return;
+  if (choice.way === 'tailscale') {
+    services.openGuide('tailscale');
     return;
+  }
+  const own = choice.way === 'own-server';
+  const steps = own ? 3 : 1;
+  const title = (step: number) => vscode.l10n.t('Add a Destination ({0}/{1})', step, steps);
+
+  let server = NTFY_SH;
+  if (own) {
+    const typed = await vscode.window.showInputBox({
+      title: title(1),
+      prompt: vscode.l10n.t('Address of your ntfy server, as you open its web app.'),
+      placeHolder: 'https://ntfy.example.com',
+      ignoreFocusOut: true,
+      validateInput: serverProblem,
+    });
+    if (typed === undefined) return;
+    server = normalizeServer(typed);
   }
 
   const topic = await vscode.window.showInputBox({
-    title: title(2),
+    title: title(own ? 2 : 1),
     prompt: vscode.l10n.t(
       'Topic to publish to; subscribe to the same topic in the ntfy app on your phone. On a public server anyone who knows it can read it, so keep the random suggestion or choose something as hard to guess.',
     ),
-    value: values.get<string>('topic')?.trim() || suggestTopic(),
+    value: suggestTopic(),
     ignoreFocusOut: true,
-    validateInput: topicProblem,
+    validateInput: (value) =>
+      topicProblem(value) ??
+      (currentDestinations().entries.some(
+        (entry) => entry.key === destinationKey({ server, topic: value }),
+      )
+        ? vscode.l10n.t('This topic on this server is already in the list.')
+        : undefined),
   });
-  if (topic === undefined) {
-    return;
+  if (topic === undefined) return;
+
+  let token = '';
+  if (own) {
+    const saved = (await services.secrets.get(tokenKey(server))) !== undefined;
+    const typed = await vscode.window.showInputBox({
+      title: title(3),
+      prompt: saved
+        ? vscode.l10n.t('Access token for your server. Leave this empty to keep the saved token.')
+        : vscode.l10n.t(
+            'Access token for your server, if the topic needs one. Leave this empty if it does not.',
+          ),
+      password: true,
+      ignoreFocusOut: true,
+      validateInput: (value) => (value.trim() === '' ? undefined : tokenProblem(value)),
+    });
+    if (typed === undefined) return;
+    token = typed;
   }
 
-  const saved = (await services.secrets.get(TOKEN_KEY)) !== undefined;
-  const token = await vscode.window.showInputBox({
-    title: title(3),
-    prompt: saved
-      ? vscode.l10n.t('Access token for your server. Leave this empty to keep the saved token.')
-      : vscode.l10n.t(
-          'Access token for your server, if the topic needs one. Leave this empty if it does not.',
-        ),
-    password: true,
-    ignoreFocusOut: true,
-    validateInput: (value) => (value.trim() === '' ? undefined : tokenProblem(value)),
-  });
-  if (token === undefined) {
+  const first = currentDestinations().entries.length === 0;
+  const saved = await saveDestination(services.secrets, { name: '', server, topic, token });
+  if (!saved.ok) {
+    offer('error', vscode.l10n.t('This topic on this server is already in the list.'));
     return;
   }
-
-  await saveDestination(services.secrets, server, topic, token);
   // A first setup is the moment to offer Claude Code, when it is on this computer.
   const claude = services.claude.status();
   await sendTest(
     services,
-    claude.found && claude.hooks === 'disconnected'
+    saved.key,
+    first && claude.found && claude.hooks === 'disconnected'
       ? { title: vscode.l10n.t('Connect Claude Code'), command: 'nightping.connectClaudeCode' }
       : undefined,
   );
 }
 
-/** With `next`, a sent test offers that next step in the same message. */
-export async function sendTest(services: Services, next?: Action): Promise<void> {
+/**
+ * To every destination that is on, or with `key` to that one. With `next`, a sent test offers
+ * that next step in the same message.
+ */
+export async function sendTest(services: Services, key?: unknown, next?: Action): Promise<void> {
   const outcome = await vscode.window.withProgress(
     {
       location: vscode.ProgressLocation.Notification,
       title: vscode.l10n.t('Sending a test notification…'),
     },
-    () => services.sender.send(testMessage(vscode.l10n.t)),
+    () =>
+      services.sender.send(testMessage(vscode.l10n.t), typeof key === 'string' ? key : undefined),
   );
   // Short on purpose: a collapsed toast shows one line, and the topic is in the status bar tooltip.
   report(outcome, vscode.l10n.t('Test notification sent. Check your phone.'), next);
 }
 
-export async function setToken(services: Services): Promise<void> {
+/** Saves the token of a server; without `server`, asks which, if there is more than one. */
+export async function setToken(services: Services, server?: unknown): Promise<void> {
+  const target = await pickServer(server, vscode.l10n.t('Set Access Token'));
+  if (target === undefined) return;
   const token = await vscode.window.showInputBox({
-    title: vscode.l10n.t('Nightping Access Token'),
+    title: vscode.l10n.t('Access Token for {0}', hostOf(target)),
     prompt: vscode.l10n.t(
       'Access token for your ntfy server. It is kept in the secret storage of VS Code on this computer.',
     ),
@@ -189,19 +264,82 @@ export async function setToken(services: Services): Promise<void> {
     ignoreFocusOut: true,
     validateInput: tokenProblem,
   });
-  if (token === undefined) {
-    return;
-  }
-  await services.secrets.store(TOKEN_KEY, token.trim());
+  if (token === undefined) return;
+  await services.secrets.store(tokenKey(target), token.trim());
   offer('info', vscode.l10n.t('Access token saved.'), sendTestAction());
 }
 
-export async function clearToken(services: Services): Promise<void> {
-  const saved = (await services.secrets.get(TOKEN_KEY)) !== undefined;
-  await services.secrets.delete(TOKEN_KEY);
+export async function clearToken(services: Services, server?: unknown): Promise<void> {
+  const target = await pickServer(server, vscode.l10n.t('Clear Access Token'));
+  if (target === undefined) return;
+  const saved = (await services.secrets.get(tokenKey(target))) !== undefined;
+  await services.secrets.delete(tokenKey(target));
   void vscode.window.showInformationMessage(
     saved ? vscode.l10n.t('Access token removed.') : vscode.l10n.t('No access token was saved.'),
   );
+}
+
+/**
+ * Removes a destination after asking; without `key`, asks which. The panel's Remove comes here
+ * too, so both ask the same way.
+ */
+export async function remove(services: Services, key?: unknown): Promise<void> {
+  const { entries } = currentDestinations();
+  let entry = entries.find((item) => item.key === key);
+  if (!entry) {
+    if (entries.length === 0) {
+      offer('info', notReadyText(vscode.l10n.t, 'incomplete'), setUpAction());
+      return;
+    }
+    const choice = await vscode.window.showQuickPick(
+      entries.map((item) => ({
+        label: displayName(item),
+        description: vscode.l10n.t('Topic {0} on {1}', item.topic, hostOf(item.server)),
+        entry: item,
+      })),
+      { title: vscode.l10n.t('Remove a Destination') },
+    );
+    if (!choice) return;
+    entry = choice.entry;
+  }
+  const yes = vscode.l10n.t('Remove');
+  const answer = await vscode.window.showWarningMessage(
+    vscode.l10n.t('Remove {0}?', displayName(entry)),
+    {
+      modal: true,
+      detail: vscode.l10n.t(
+        'Notifications stop going to the topic {0} on {1}.',
+        entry.topic,
+        entry.server,
+      ),
+    },
+    yes,
+  );
+  if (answer === yes) await removeDestination(services.secrets, entry.key);
+}
+
+/** The server passed, or the one of the destinations, or the one the user picks. */
+async function pickServer(server: unknown, title: string): Promise<string | undefined> {
+  if (typeof server === 'string' && isServerUrl(normalizeServer(server))) {
+    return normalizeServer(server);
+  }
+  const servers = [
+    ...new Set(
+      currentDestinations()
+        .entries.filter((entry) => entry.problem !== 'server')
+        .map((entry) => entry.server),
+    ),
+  ];
+  if (servers.length === 0) {
+    offer('warning', notReadyText(vscode.l10n.t, 'incomplete'), setUpAction());
+    return undefined;
+  }
+  if (servers.length === 1) return servers[0];
+  const choice = await vscode.window.showQuickPick(
+    servers.map((item) => ({ label: hostOf(item), description: item, server: item })),
+    { title, placeHolder: vscode.l10n.t('A token belongs to a server.') },
+  );
+  return choice?.server;
 }
 
 function serverProblem(value: string): string | undefined {
@@ -236,20 +374,40 @@ function tokenProblem(value: string): string | undefined {
 function report(outcome: SendOutcome, sent: string, next?: Action): void {
   switch (outcome.kind) {
     case 'not-ready':
-      offer('warning', notReadyText(vscode.l10n.t, outcome.state.kind), setUpAction());
+      offer(
+        'warning',
+        notReadyText(vscode.l10n.t, outcome.state),
+        outcome.state === 'incomplete' ? setUpAction() : openAction(),
+      );
       return;
     case 'sent':
       offer('info', sent, ...(next ? [next] : []));
       return;
     case 'failed': {
-      const { result, hasToken, text } = outcome;
+      const { failures } = outcome;
+      const total = failures.length + outcome.sent;
+      // A toast keeps to one line.
+      const text = outcome.text.replace(/\n/g, ' ');
+      if (outcome.sent > 0) {
+        offer(
+          'warning',
+          `${vscode.l10n.t('Sent to {0} of {1} destinations.', outcome.sent, total)} ${text}`,
+          openAction(),
+        );
+        return;
+      }
+      if (failures.length > 1) {
+        offer('error', text, openAction());
+        return;
+      }
+      const { result, hasToken, destination } = failures[0];
       const actions =
         result.reason === 'unauthorized'
           ? hasToken
-            ? [setTokenAction(), clearTokenAction()]
-            : [setTokenAction()]
+            ? [setTokenAction(destination.server), clearTokenAction(destination.server)]
+            : [setTokenAction(destination.server)]
           : result.reason === 'redirect' || result.reason === 'unreachable'
-            ? [setUpAction()]
+            ? [openAction()]
             : [];
       offer('error', text, ...actions);
       return;
@@ -272,7 +430,7 @@ function offer(
   void show(message, ...actions.map((action) => action.title)).then((choice) => {
     const action = actions.find((candidate) => candidate.title === choice);
     if (action) {
-      void vscode.commands.executeCommand(action.command);
+      void vscode.commands.executeCommand(action.command, ...(action.args ?? []));
     }
   });
 }

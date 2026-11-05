@@ -1,21 +1,33 @@
 import { expect, test, type Page } from '@playwright/test';
-import type { AgentKind } from '../../src/shared/protocol';
+import type { AgentKind, SetupWay } from '../../src/shared/protocol';
 import { lowestTextContrast } from './contrast';
-import { notSetUp, openPanel, ready, strings } from './harness';
+import {
+  notSetUp,
+  openPanel,
+  ownServer,
+  ready,
+  strings,
+  tailscaleReady,
+  twoDestinations,
+} from './harness';
 import type { ThemeName } from './themes';
 
 const SCREENS = 'test-results/screens';
 
-const destinationCard = (page: Page) => page.getByRole('region', { name: strings.destination });
+const d = strings.destinations;
+const destinationCard = (page: Page) => page.getByRole('region', { name: d.title });
 const notifyCard = (page: Page) => page.getByRole('region', { name: strings.whenToNotify });
 const messageCard = (page: Page) => page.getByRole('region', { name: strings.message.title });
-const server = (page: Page) => page.getByLabel(strings.server, { exact: true });
-const topic = (page: Page) => page.getByLabel(strings.topic, { exact: true });
-const token = (page: Page) => page.getByLabel(strings.token, { exact: true });
-const saveButton = (page: Page) => page.getByRole('button', { name: strings.saveAndTest });
-const testButton = (page: Page) => page.getByRole('button', { name: strings.sendTest });
-const changeButton = (page: Page) =>
-  page.getByRole('button', { name: strings.change, exact: true });
+const server = (page: Page) => page.getByLabel(d.server, { exact: true });
+const topic = (page: Page) => page.getByLabel(d.topic, { exact: true });
+const token = (page: Page) => page.getByLabel(d.token, { exact: true });
+const name = (page: Page) => page.getByLabel(d.name, { exact: true });
+const saveButton = (page: Page) => page.getByRole('button', { name: d.saveAndTest });
+const testButton = (page: Page) => destinationCard(page).getByRole('button', { name: d.sendTest });
+const editButton = (page: Page) => destinationCard(page).getByRole('button', { name: d.edit });
+const way = (page: Page, which: SetupWay) =>
+  destinationCard(page).getByRole('button', { name: d.ways[which].title });
+const rows = (page: Page) => destinationCard(page).locator('.ng-dest');
 const result = (page: Page) => page.locator('.ng-destination > .ng-result');
 const stepTitles = (page: Page) => destinationCard(page).locator('.ng-step:visible .ng-step-title');
 const agentRow = (page: Page, agent: AgentKind) =>
@@ -35,7 +47,9 @@ const contrastFor = (theme: ThemeName) => (theme === 'hcDark' ? 7 : 4.5);
 
 for (const theme of ['dark', 'light', 'hcDark', 'hcLight'] as ThemeName[]) {
   test.describe(`${theme} theme`, () => {
-    test('walks through the setup steps while Nightping is not set up', async ({ page }) => {
+    test('asks how notifications should reach the phone while Nightping is not set up', async ({
+      page,
+    }) => {
       const panel = await openPanel(page, theme);
       await panel.init(notSetUp);
 
@@ -43,20 +57,15 @@ for (const theme of ['dark', 'light', 'hcDark', 'hcLight'] as ThemeName[]) {
       await expect(page.getByRole('heading', { level: 1 })).toHaveText(strings.title);
       await expect(page.getByText(strings.tagline)).toBeVisible();
       await expect(page.locator('.ng-header .ng-status')).toHaveText(strings.status.incomplete);
-      await expect(stepTitles(page)).toHaveText([
-        strings.steps.app.title,
-        strings.steps.server.title,
-        strings.steps.topic.title,
-        strings.steps.test.title,
-      ]);
-      // No server is filled in for the user; a first setup starts from a topic nobody can guess.
-      await expect(server(page)).toHaveValue('');
-      await expect(topic(page)).toHaveValue(/^nightping-[a-z0-9]{20}$/);
-      // The token waits until the user says the server needs one.
-      await expect(token(page)).toBeHidden();
-      await expect(page.getByRole('button', { name: strings.addToken })).toBeVisible();
-      await expect(saveButton(page)).toBeDisabled();
-      await expect(page.getByRole('button', { name: strings.cancel })).toBeHidden();
+      await expect(page.getByText(d.chooseLead)).toBeVisible();
+      // No server is chosen for the user: nothing is filled in until a way is picked.
+      for (const which of ['ntfy-sh', 'own-server', 'tailscale'] as const) {
+        await expect(way(page, which)).toContainText(d.ways[which].help);
+      }
+      await expect(way(page, 'ntfy-sh')).toContainText(d.easiest);
+      await expect(destinationCard(page).locator('form')).toBeHidden();
+      // There is no list to go back to.
+      await expect(page.getByRole('button', { name: d.cancel })).toBeHidden();
       await expect(page.getByText(strings.recentEmpty)).toBeVisible();
       // WCAG AA for every text, AAA in the dark high contrast theme.
       expect(await lowestTextContrast(page)).toBeGreaterThanOrEqual(contrastFor(theme));
@@ -65,17 +74,22 @@ for (const theme of ['dark', 'light', 'hcDark', 'hcLight'] as ThemeName[]) {
       expect(panel.problems).toEqual([]);
     });
 
-    test('says in one line where notifications go once it works', async ({ page }) => {
+    test('lists where notifications go once it works', async ({ page }) => {
       const panel = await openPanel(page, theme);
       await panel.init(ready);
 
       await expect(page.locator('.ng-header .ng-status')).toHaveText(strings.status.ready);
-      await expect(destinationCard(page).locator('.ng-summary-text')).toHaveText(
-        'Notifications go to the topic my-topic on ntfy.example.com.',
-      );
+      await expect(rows(page)).toHaveCount(1);
+      await expect(rows(page)).toContainText('ntfy.example.com');
+      // Without a name the host is the title, so the line under it names the topic alone.
+      await expect(rows(page)).toContainText('Topic my-topic');
+      await expect(rows(page)).not.toContainText('on ntfy.example.com');
+      // One destination has nothing to turn on and off.
+      await expect(rows(page).getByRole('checkbox')).toHaveCount(0);
       await expect(destinationCard(page).locator('form')).toBeHidden();
       await expect(testButton(page)).toBeEnabled();
-      await expect(changeButton(page)).toBeVisible();
+      await expect(editButton(page)).toBeVisible();
+      await expect(page.getByRole('button', { name: d.add })).toBeVisible();
 
       const entries = page.getByRole('list', { name: strings.recent }).getByRole('listitem');
       await expect(entries).toHaveCount(3);
@@ -160,6 +174,34 @@ for (const theme of ['dark', 'light', 'hcDark', 'hcLight'] as ThemeName[]) {
       expect(panel.problems).toEqual([]);
     });
 
+    test('lists several destinations, each on or off', async ({ page }) => {
+      const panel = await openPanel(page, theme);
+      await panel.init(twoDestinations);
+      await expect(rows(page)).toHaveCount(2);
+      await expect(page.getByRole('checkbox', { name: 'Phone' })).toBeChecked();
+      await expect(page.getByRole('checkbox', { name: 'Home server' })).not.toBeChecked();
+      await expect(rows(page).nth(1)).toContainText('Topic alerts on box.tail1234.ts.net');
+      await expect(rows(page).nth(1)).toContainText(d.offNote);
+      await expect(rows(page).nth(0)).not.toContainText(d.offNote);
+      expect(await lowestTextContrast(page)).toBeGreaterThanOrEqual(contrastFor(theme));
+      await destinationCard(page).screenshot({ path: `${SCREENS}/destinations-${theme}.png` });
+      expect(panel.problems).toEqual([]);
+    });
+
+    test('walks through one’s own server over Tailscale', async ({ page }) => {
+      // The guide is long; the card's picture holds all of it.
+      await page.setViewportSize({ width: 1100, height: 2000 });
+      const panel = await openPanel(page, theme);
+      await panel.init(notSetUp);
+      await way(page, 'tailscale').click();
+      await panel.post({ type: 'tailscale', status: tailscaleReady });
+      await page.getByRole('radiogroup').getByLabel('box').check();
+      await expect(page.locator('.ng-command').first()).toContainText('box.tail1234.ts.net');
+      expect(await lowestTextContrast(page)).toBeGreaterThanOrEqual(contrastFor(theme));
+      await destinationCard(page).screenshot({ path: `${SCREENS}/tailscale-${theme}.png` });
+      expect(panel.problems).toEqual([]);
+    });
+
     test('says when notifications are paused', async ({ page }) => {
       const panel = await openPanel(page, theme);
       await panel.init({ ...ready, pause: {} });
@@ -172,31 +214,65 @@ for (const theme of ['dark', 'light', 'hcDark', 'hcLight'] as ThemeName[]) {
   });
 }
 
-test('fills in ntfy.sh on request and saves with a test', async ({ page }) => {
+test('walks through ntfy.sh in three steps and saves with a test', async ({ page }) => {
   const panel = await openPanel(page, 'dark');
   await panel.init(notSetUp);
-  await page.getByRole('button', { name: strings.useNtfySh }).click();
-  await expect(server(page)).toHaveValue('https://ntfy.sh');
+  await way(page, 'ntfy-sh').click();
+  await expect(stepTitles(page)).toHaveText([
+    d.steps.app.title,
+    d.steps.topic.title,
+    d.steps.save.title,
+  ]);
+  // A first destination starts from a topic nobody can guess; ntfy.sh needs no address.
+  await expect(topic(page)).toHaveValue(/^nightping-[a-z0-9]{20}$/);
+  await expect(topic(page)).toBeFocused();
+  await expect(server(page)).toBeHidden();
+  await expect(page.getByRole('button', { name: d.cancel })).toBeHidden();
+  await expect(name(page)).toHaveAttribute('placeholder', 'ntfy.sh');
   await expect(saveButton(page)).toBeEnabled();
   const suggested = await topic(page).inputValue();
   await saveButton(page).click();
   expect(await panel.sent()).toEqual([
-    { type: 'save', server: 'https://ntfy.sh', topic: suggested, token: '', test: true },
+    { type: 'save', name: '', server: 'https://ntfy.sh', topic: suggested, token: '', test: true },
   ]);
 });
 
-test('saves what was typed; an empty token keeps the saved one', async ({ page }) => {
+test('asks for one’s own server and says how to subscribe to it', async ({ page }) => {
   const panel = await openPanel(page, 'dark');
   await panel.init(notSetUp);
+  await way(page, 'own-server').click();
+  await expect(stepTitles(page)).toHaveText([
+    d.steps.app.title,
+    d.steps.server.title,
+    d.steps.topicOwn.title,
+    d.steps.save.title,
+  ]);
+  await expect(server(page)).toBeFocused();
+  await expect(server(page)).toHaveValue('');
+  await expect(saveButton(page)).toBeDisabled();
+  // The token waits until the user says the server needs one.
+  await expect(token(page)).toBeHidden();
   await server(page).fill(' https://ntfy.example.com/ ');
+  await expect(
+    destinationCard(page).getByText(/^Open the ntfy app on your phone and tap \+/),
+  ).toHaveText(
+    'Open the ntfy app on your phone and tap +. Turn on “Use another server”, enter https://ntfy.example.com, then this topic.',
+  );
+  await page.getByRole('button', { name: d.addToken }).click();
+  await expect(token(page)).toBeFocused();
+  await expect(token(page)).toHaveAttribute('type', 'password');
+  await expect(page.getByRole('button', { name: d.removeToken })).toBeHidden();
+  await token(page).fill('tk_abc');
   await topic(page).fill('my-topic');
-  await server(page).press('Enter');
+  await name(page).fill('Work phone');
+  await name(page).press('Enter');
   expect(await panel.sent()).toEqual([
     {
       type: 'save',
+      name: 'Work phone',
       server: 'https://ntfy.example.com/',
       topic: 'my-topic',
-      token: '',
+      token: 'tk_abc',
       test: true,
     },
   ]);
@@ -205,163 +281,268 @@ test('saves what was typed; an empty token keeps the saved one', async ({ page }
 test('checks the server once the field is left, not while typing', async ({ page }) => {
   const panel = await openPanel(page, 'dark');
   await panel.init(notSetUp);
+  await way(page, 'own-server').click();
   await server(page).fill('ntfy.example');
-  await expect(page.getByText(strings.serverInvalid)).toBeHidden();
+  await expect(page.getByText(d.serverInvalid)).toBeHidden();
   await server(page).press('Tab');
-  await expect(page.getByText(strings.serverInvalid)).toBeVisible();
+  await expect(page.getByText(d.serverInvalid)).toBeVisible();
   await expect(server(page)).toHaveAttribute('aria-invalid');
   await expect(saveButton(page)).toBeDisabled();
 
   await server(page).fill('https://ntfy.example.com');
-  await expect(page.getByText(strings.serverInvalid)).toBeHidden();
+  await expect(page.getByText(d.serverInvalid)).toBeHidden();
   await expect(saveButton(page)).toBeEnabled();
 });
 
-test('shows a wrong saved setting at once', async ({ page }) => {
+test('goes back to the three ways', async ({ page }) => {
   const panel = await openPanel(page, 'dark');
-  await panel.init({
-    ...notSetUp,
-    server: 'ntfy.example.com',
-    topic: 'my topic',
-    status: 'invalid',
-  });
-  await expect(page.locator('.ng-header .ng-status')).toHaveText(strings.status.invalid);
-  await expect(page.getByText(strings.serverInvalid)).toBeVisible();
-  await expect(page.getByText(strings.topicInvalid)).toBeVisible();
-  await page.screenshot({ path: `${SCREENS}/invalid-dark.png` });
+  await panel.init(notSetUp);
+  await way(page, 'own-server').click();
+  await page.getByRole('button', { name: d.otherWays }).click();
+  await expect(way(page, 'tailscale')).toBeVisible();
+  await expect(destinationCard(page).locator('form')).toBeHidden();
 });
 
 test('opens the app stores, copies the topic and suggests a new one', async ({ page }) => {
   const panel = await openPanel(page, 'dark');
   await panel.init(notSetUp);
+  await way(page, 'ntfy-sh').click();
   const card = destinationCard(page);
   await card.getByRole('button', { name: 'Google Play' }).click();
   await card.getByRole('button', { name: 'F-Droid' }).click();
   await card.getByRole('button', { name: 'App Store' }).click();
   const first = await topic(page).inputValue();
-  const copy = card.getByRole('button', { name: strings.copyTopic, exact: true });
+  const copy = card.getByRole('button', { name: d.copy, exact: true });
   await copy.click();
-  await expect(card.getByRole('button', { name: strings.copied })).toBeVisible();
-  await page.getByRole('button', { name: strings.randomTopic }).click();
+  await expect(card.getByRole('button', { name: d.copied })).toBeVisible();
+  await page.getByRole('button', { name: d.randomTopic }).click();
   await expect(topic(page)).toHaveValue(/^nightping-[a-z0-9]{20}$/);
   await expect(topic(page)).not.toHaveValue(first);
   expect(await panel.sent()).toEqual([
     { type: 'openAppStore', store: 'google-play' },
     { type: 'openAppStore', store: 'f-droid' },
     { type: 'openAppStore', store: 'app-store' },
-    { type: 'copyTopic', topic: first },
+    { type: 'copy', text: first },
   ]);
 });
 
-test('points to ntfy.sh until there is a server, and says how to subscribe to one’s own', async ({
+test('asks Tailscale for the devices and fills in the chosen server', async ({ page }) => {
+  const panel = await openPanel(page, 'dark');
+  await panel.init(notSetUp);
+  await way(page, 'tailscale').click();
+  await expect(stepTitles(page)).toHaveText([
+    d.steps.tailscale.title,
+    d.steps.pickServer.title,
+    d.steps.run.title,
+    d.steps.topicTailscale.title,
+    d.steps.save.title,
+  ]);
+  await expect(page.getByText(d.tailscale.checking)).toBeVisible();
+  await panel.post({ type: 'tailscale', status: tailscaleReady });
+  await expect(page.getByText('This computer is on Tailscale as desk.')).toBeVisible();
+  const devices = page.getByRole('radiogroup', { name: d.steps.pickServer.title });
+  await expect(devices.getByRole('radio')).toHaveCount(2);
+  await expect(devices).toContainText('desk (this computer · windows)');
+  await expect(devices).toContainText('box (linux · offline)');
+  // The commands wait for the server's address.
+  const commands = page.locator('.ng-command');
+  await expect(commands.nth(0).getByRole('button', { name: d.copy })).toBeDisabled();
+  await expect(commands.nth(0)).toContainText('NTFY_BASE_URL=https://SERVER.TAILNET.ts.net');
+
+  await devices.getByLabel('box').check();
+  await expect(server(page)).toHaveValue('https://box.tail1234.ts.net');
+  await expect(page.getByText(d.tailscale.offlineChosen.replace('{0}', 'box'))).toBeVisible();
+  await expect(commands.nth(0)).toContainText('-e NTFY_BASE_URL=https://box.tail1234.ts.net');
+  await expect(commands.nth(1)).toHaveText(/tailscale serve --bg 2586/);
+  await expect(
+    destinationCard(page).getByText(/^Install the ntfy app and turn Tailscale on/),
+  ).toContainText('enter https://box.tail1234.ts.net, then this topic');
+  // Typing another address unchecks the device.
+  await server(page).fill('https://desk.tail1234.ts.net');
+  await expect(devices.getByLabel('desk', { exact: false })).toBeChecked();
+  await expect(devices.getByLabel('box')).not.toBeChecked();
+  await expect(page.getByText(/is offline right now/)).toBeHidden();
+
+  await commands.nth(1).getByRole('button', { name: d.copy }).click();
+  await expect(commands.nth(1).getByRole('button', { name: d.copied })).toBeVisible();
+  await page.getByRole('button', { name: d.tailscale.download }).click();
+  await page.getByRole('button', { name: d.run.otherWays }).click();
+  await destinationCard(page).screenshot({ path: `${SCREENS}/tailscale-dark.png` });
+  await saveButton(page).click();
+  const sent = await panel.sent();
+  expect(sent.slice(0, 1)).toEqual([{ type: 'findTailscale' }]);
+  expect(sent.slice(1, 4)).toEqual([
+    { type: 'copy', text: 'tailscale serve --bg 2586' },
+    { type: 'openGuide', link: 'tailscale-download' },
+    { type: 'openGuide', link: 'ntfy-install' },
+  ]);
+  expect(sent[4]).toMatchObject({ type: 'save', server: 'https://desk.tail1234.ts.net' });
+});
+
+test('says what to do when Tailscale is missing, off or signed out, or has no MagicDNS', async ({
   page,
 }) => {
   const panel = await openPanel(page, 'dark');
   await panel.init(notSetUp);
-  const useNtfySh = page.getByRole('button', { name: strings.useNtfySh });
-  await expect(useNtfySh).toHaveClass(/ng-primary/);
-  await expect(page.getByText(strings.chooseServerFirst)).toBeVisible();
-  const own = page.getByText(/^On your own server/);
-  await expect(own).toBeHidden();
-
-  await server(page).fill('https://ntfy.example.com');
-  await expect(useNtfySh).toHaveClass(/ng-secondary/);
-  await expect(page.getByText(strings.chooseServerFirst)).toBeHidden();
-  await expect(own).toHaveText(
-    'On your own server, also turn on “Use another server” in the app and enter https://ntfy.example.com.',
-  );
-  await useNtfySh.click();
-  await expect(own).toBeHidden();
+  await way(page, 'tailscale').click();
+  for (const kind of ['missing', 'off', 'signed-out'] as const) {
+    await panel.post({ type: 'tailscale', status: { kind } });
+    await expect(page.getByText(d.tailscale.state[kind])).toBeVisible();
+    await expect(page.getByRole('radiogroup')).toBeHidden();
+  }
+  await page.getByRole('button', { name: d.tailscale.check }).click();
+  await expect(page.getByText(d.tailscale.checking)).toBeVisible();
+  await panel.post({
+    type: 'tailscale',
+    status: { kind: 'ready', name: 'desk', magicDns: false, devices: [] },
+  });
+  await expect(page.getByText(/^MagicDNS is off/)).toBeVisible();
+  await page.getByRole('button', { name: d.tailscale.openDns }).click();
+  // The address can always be typed.
+  await expect(server(page)).toBeVisible();
+  expect(await panel.sent()).toEqual([
+    { type: 'findTailscale' },
+    { type: 'findTailscale' },
+    { type: 'openGuide', link: 'tailscale-dns' },
+  ]);
 });
 
-test('asks for a token only when the server needs one', async ({ page }) => {
-  const panel = await openPanel(page, 'dark');
-  await panel.init(notSetUp);
-  await page.getByRole('button', { name: strings.addToken }).click();
-  await expect(token(page)).toBeVisible();
-  await expect(token(page)).toBeFocused();
-  await expect(token(page)).toHaveAttribute('type', 'password');
-  await expect(page.getByRole('button', { name: strings.addToken })).toBeHidden();
-  await expect(page.getByRole('button', { name: strings.removeToken })).toBeHidden();
-});
-
-test('changes a working setup, or leaves it as it was', async ({ page }) => {
+test('opens the guide the Command Palette asks for', async ({ page }) => {
   const panel = await openPanel(page, 'dark');
   await panel.init(ready);
-  await changeButton(page).click();
-  // Whoever changes a working setup has the app already: three steps, numbered from one.
+  await panel.post({ type: 'guide', way: 'tailscale' });
+  await expect(stepTitles(page).first()).toHaveText(d.steps.tailscale.title);
+  // There is a list to go back to.
+  await expect(page.getByRole('button', { name: d.cancel })).toBeVisible();
+  expect(await panel.sent()).toEqual([{ type: 'findTailscale' }]);
+});
+
+test('refuses the same topic on the same server twice', async ({ page }) => {
+  const panel = await openPanel(page, 'dark');
+  await panel.init(ready);
+  await page.getByRole('button', { name: d.add }).click();
+  await way(page, 'own-server').click();
+  await server(page).fill('https://ntfy.example.com/');
+  await topic(page).fill('my-topic');
+  await expect(page.getByText(d.duplicate)).toBeVisible();
+  await expect(saveButton(page)).toBeDisabled();
+  await topic(page).fill('my-other-topic');
+  await expect(page.getByText(d.duplicate)).toBeHidden();
+  await expect(saveButton(page)).toBeEnabled();
+  // Should the host refuse anyway, the card says why.
+  await panel.post({ type: 'notSaved', error: d.duplicate });
+  await expect(result(page)).toHaveText(d.duplicate);
+});
+
+test('adds another destination, or goes back to the list', async ({ page }) => {
+  const panel = await openPanel(page, 'dark');
+  await panel.init(ready);
+  await page.getByRole('button', { name: d.add }).click();
+  await expect(way(page, 'ntfy-sh')).toBeFocused();
+  await expect(rows(page)).toBeHidden();
+  await page.getByRole('button', { name: d.cancel }).click();
+  await expect(rows(page)).toHaveCount(1);
+  await way(page, 'ntfy-sh').isHidden();
+});
+
+test('edits a destination, or leaves it as it was', async ({ page }) => {
+  const panel = await openPanel(page, 'dark');
+  await panel.init(ready);
+  await editButton(page).click();
+  // Whoever edits a destination has the app already: three steps, numbered from one.
   await expect(stepTitles(page)).toHaveText([
-    strings.steps.server.title,
-    strings.steps.topic.title,
-    strings.steps.test.title,
+    d.steps.server.title,
+    d.steps.topicOwn.title,
+    d.steps.save.title,
   ]);
+  await expect(page.getByRole('button', { name: d.otherWays })).toBeHidden();
   await expect(server(page)).toBeFocused();
   // The saved token is never shown; the field says one is saved.
   await expect(token(page)).toHaveValue('');
-  await expect(token(page)).toHaveAttribute('placeholder', strings.tokenSaved);
-  await expect(page.getByRole('button', { name: strings.removeToken })).toBeVisible();
+  await expect(token(page)).toHaveAttribute('placeholder', d.tokenSaved);
+  await expect(page.getByRole('button', { name: d.removeToken })).toBeVisible();
   // Nothing changed yet, so there is nothing to save.
   await expect(saveButton(page)).toBeDisabled();
-  await destinationCard(page).screenshot({ path: `${SCREENS}/change-dark.png` });
+  await destinationCard(page).screenshot({ path: `${SCREENS}/edit-dark.png` });
 
   await topic(page).fill('half-typed');
-  await page.getByRole('button', { name: strings.cancel }).click();
+  await page.getByRole('button', { name: d.cancel }).click();
   await expect(destinationCard(page).locator('form')).toBeHidden();
-  await changeButton(page).click();
+  await editButton(page).click();
   await expect(topic(page)).toHaveValue('my-topic');
 
   await topic(page).fill('other-topic');
   await token(page).fill('tk_new');
   await saveButton(page).click();
   expect(await panel.sent()).toEqual([
-    { type: 'save', server: ready.server, topic: 'other-topic', token: 'tk_new', test: true },
+    {
+      type: 'save',
+      previous: ownServer.key,
+      name: '',
+      server: ownServer.server,
+      topic: 'other-topic',
+      token: 'tk_new',
+      test: true,
+    },
   ]);
+  const changed = {
+    ...ownServer,
+    key: 'https://ntfy.example.com/other-topic',
+    topic: 'other-topic',
+  };
   await panel.post({ type: 'saved' });
-  await panel.post({ type: 'state', state: { ...ready, topic: 'other-topic' } });
-  await expect(destinationCard(page).locator('.ng-summary-text')).toHaveText(
-    'Notifications go to the topic other-topic on ntfy.example.com.',
-  );
+  await panel.post({ type: 'state', state: { ...ready, destinations: [changed] } });
+  await expect(rows(page)).toContainText('Topic other-topic');
   await expect(destinationCard(page).locator('form')).toBeHidden();
-  await changeButton(page).click();
+  await editButton(page).click();
   await expect(token(page)).toHaveValue('');
 });
 
 test('removes a saved token', async ({ page }) => {
   const panel = await openPanel(page, 'dark');
   await panel.init(ready);
-  await changeButton(page).click();
-  await page.getByRole('button', { name: strings.removeToken }).click();
-  expect(await panel.sent()).toEqual([{ type: 'removeToken' }]);
+  await editButton(page).click();
+  await page.getByRole('button', { name: d.removeToken }).click();
+  expect(await panel.sent()).toEqual([{ type: 'removeToken', key: ownServer.key }]);
 });
 
 test('rejects a token that cannot go into an HTTP header', async ({ page }) => {
   const panel = await openPanel(page, 'dark');
   await panel.init(ready);
-  await changeButton(page).click();
+  await editButton(page).click();
   await token(page).fill('tk with spaces');
   await token(page).press('Tab');
-  await expect(page.getByText(strings.tokenInvalid)).toBeVisible();
+  await expect(page.getByText(d.tokenInvalid)).toBeVisible();
   await expect(saveButton(page)).toBeDisabled();
 });
 
 test('keeps what the user is typing when the settings change elsewhere', async ({ page }) => {
   const panel = await openPanel(page, 'dark');
   await panel.init(ready);
-  await changeButton(page).click();
+  await editButton(page).click();
   await topic(page).fill('half-typed');
-  await panel.post({
-    type: 'state',
-    state: { ...ready, server: 'https://ntfy.other.example', topic: 'changed-elsewhere' },
-  });
-  await expect(server(page)).toHaveValue('https://ntfy.other.example');
+  await panel.post({ type: 'state', state: twoDestinations });
   await expect(topic(page)).toHaveValue('half-typed');
+  await expect(destinationCard(page).locator('form')).toBeVisible();
 });
 
-test('sends a test and tells how it went', async ({ page }) => {
+test('shows a wrong saved setting in its row', async ({ page }) => {
+  const panel = await openPanel(page, 'dark');
+  const wrong = { ...ownServer, server: 'ntfy.example.com', problem: 'server' as const };
+  await panel.init({ ...ready, destinations: [wrong], status: 'invalid' });
+  await expect(page.locator('.ng-header .ng-status')).toHaveText(strings.status.invalid);
+  await expect(rows(page)).toContainText(d.problem.server);
+  await expect(testButton(page)).toBeDisabled();
+  await editButton(page).click();
+  await expect(page.getByText(d.serverInvalid)).toBeVisible();
+  await page.screenshot({ path: `${SCREENS}/invalid-dark.png` });
+});
+
+test('sends a test to one destination and tells how it went', async ({ page }) => {
   const panel = await openPanel(page, 'dark');
   await panel.init(ready);
   await testButton(page).click();
-  expect(await panel.sent()).toEqual([{ type: 'sendTest' }]);
+  expect(await panel.sent()).toEqual([{ type: 'sendTest', key: ownServer.key }]);
   await panel.post({ type: 'busy', busy: true });
   await expect(page.getByRole('button', { name: strings.sending })).toBeDisabled();
 
@@ -372,33 +553,84 @@ test('sends a test and tells how it went', async ({ page }) => {
   await expect(result(page)).toHaveClass(/ng-failed/);
   await page.screenshot({ path: `${SCREENS}/failed-dark.png` });
 
-  await panel.post({ type: 'result', time: new Date(2026, 10, 3, 14, 2).getTime() });
+  await panel.post({
+    type: 'result',
+    time: new Date(2026, 10, 3, 14, 2).getTime(),
+    to: 'ntfy.example.com',
+  });
   // In the language VS Code shows (English here: a 12-hour clock).
   await expect(result(page)).toHaveText(
-    /^Sent at 2:02\sPM\. If it is not on your phone, subscribe to this topic in the ntfy app\.$/,
+    /^Sent to ntfy\.example\.com at 2:02\sPM\. If it is not on your phone, check that the app is subscribed to its topic\.$/,
   );
   await expect(result(page)).not.toHaveClass(/ng-failed/);
   await expect(testButton(page)).toBeEnabled();
 });
 
-test('shows the test result once the first setup collapses to one line', async ({ page }) => {
+test('shows the test result once the first destination is saved', async ({ page }) => {
   const panel = await openPanel(page, 'dark');
   await panel.init(notSetUp);
-  await page.getByRole('button', { name: strings.useNtfySh }).click();
+  await way(page, 'ntfy-sh').click();
   await saveButton(page).click();
   await panel.post({ type: 'saved' });
   await panel.post({ type: 'busy', busy: true });
+  const first = {
+    key: 'https://ntfy.sh/nightping-abc',
+    name: '',
+    server: 'https://ntfy.sh',
+    topic: 'nightping-abc',
+    enabled: true,
+    hasToken: false,
+  };
   await panel.post({
     type: 'state',
-    state: { ...ready, server: 'https://ntfy.sh', topic: 'nightping-abc', history: [] },
+    state: { ...ready, destinations: [first], history: [] },
   });
-  await panel.post({ type: 'result', time: Date.now() });
+  await panel.post({ type: 'result', time: Date.now(), to: 'ntfy.sh' });
   await panel.post({ type: 'busy', busy: false });
-  await expect(destinationCard(page).locator('.ng-summary-text')).toHaveText(
-    'Notifications go to the topic nightping-abc on ntfy.sh.',
-  );
-  await expect(result(page)).toHaveText(/^Sent at /);
+  await expect(rows(page)).toContainText('Topic nightping-abc');
+  await expect(result(page)).toHaveText(/^Sent to ntfy\.sh at /);
   await destinationCard(page).screenshot({ path: `${SCREENS}/first-test-dark.png` });
+});
+
+test('turns a destination on and off, and removes one', async ({ page }) => {
+  const panel = await openPanel(page, 'dark');
+  await panel.init(twoDestinations);
+  const [phone, home] = twoDestinations.destinations;
+  await expect(page.getByRole('checkbox', { name: 'Phone' })).toBeChecked();
+  await page.getByRole('checkbox', { name: 'Home server' }).check();
+  await page.getByRole('button', { name: `${d.remove}: Phone` }).click();
+  expect(await panel.sent()).toEqual([
+    { type: 'setEnabled', key: home.key, enabled: true },
+    { type: 'removeDestination', key: phone.key },
+  ]);
+});
+
+test('offers the box of the only destination once it is off', async ({ page }) => {
+  const panel = await openPanel(page, 'dark');
+  await panel.init({ ...ready, destinations: [{ ...ownServer, enabled: false }], status: 'off' });
+  await expect(page.locator('.ng-header .ng-status')).toHaveText(strings.status.off);
+  await expect(rows(page)).toContainText(d.offNote);
+  await page.getByRole('checkbox', { name: 'ntfy.example.com' }).check();
+  expect(await panel.sent()).toEqual([{ type: 'setEnabled', key: ownServer.key, enabled: true }]);
+});
+
+test('marks a notification that reached only some destinations', async ({ page }) => {
+  const panel = await openPanel(page, 'dark');
+  await panel.init({
+    ...twoDestinations,
+    history: [
+      {
+        time: Date.now(),
+        title: 'Build',
+        message: 'failed · 4m 12s',
+        error: 'Home server: Could not reach https://box.tail1234.ts.net (ENOTFOUND).',
+        partial: true,
+      },
+    ],
+  });
+  const entry = page.getByRole('list', { name: strings.recent }).getByRole('listitem');
+  await expect(entry).toContainText(strings.partlySent);
+  await expect(entry).toContainText('Home server: Could not reach');
 });
 
 test('connects, disconnects and copies the Claude Code hooks', async ({ page }) => {
@@ -694,14 +926,21 @@ test('clears the history and opens the settings', async ({ page }) => {
   expect(await panel.sent()).toEqual([{ type: 'clearHistory' }, { type: 'openSettings' }]);
 });
 
-for (const [name, state] of [
-  ['ready', ready],
-  ['setup', notSetUp],
+for (const [label, state, open] of [
+  ['ready', ready, undefined],
+  ['setup', notSetUp, undefined],
+  ['two', twoDestinations, undefined],
+  ['tailscale', notSetUp, 'tailscale'],
 ] as const) {
-  test(`fits a narrow panel without scrolling sideways (${name})`, async ({ page }) => {
+  test(`fits a narrow panel without scrolling sideways (${label})`, async ({ page }) => {
     await page.setViewportSize({ width: 380, height: 2600 });
     const panel = await openPanel(page, 'dark');
     await panel.init(state);
+    if (open) {
+      await way(page, open).click();
+      await panel.post({ type: 'tailscale', status: tailscaleReady });
+      await page.getByRole('radiogroup').getByLabel('box').check();
+    }
     await howItWorks(page, 'codex').click();
     await rules(page).click();
     const overflow = await page.evaluate(() => {
@@ -710,7 +949,7 @@ for (const [name, state] of [
     });
     expect(overflow).toBeLessThanOrEqual(0);
     // The panel scrolls inside #app, so each card gets its own picture.
-    await destinationCard(page).screenshot({ path: `${SCREENS}/narrow-${name}-phone-dark.png` });
-    await notifyCard(page).screenshot({ path: `${SCREENS}/narrow-${name}-notify-dark.png` });
+    await destinationCard(page).screenshot({ path: `${SCREENS}/narrow-${label}-phone-dark.png` });
+    await notifyCard(page).screenshot({ path: `${SCREENS}/narrow-${label}-notify-dark.png` });
   });
 }

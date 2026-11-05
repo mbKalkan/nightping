@@ -1,311 +1,211 @@
-// The "Your phone" card. Until Nightping is set up it walks through the steps in order: the app,
-// the server, the topic, a test. Once it works it is one line that says where notifications go,
-// with a test and a way to change it.
+// The "Where notifications go" card. With no destination yet it asks how notifications should
+// reach the phone and walks through that way step by step. Then it lists the destinations, each
+// with a test, a change and a removal, and a way to add another.
+import { displayName, hostOf } from '../shared/destination';
 import {
-  isServerUrl,
-  isToken,
-  isTopic,
-  normalizeServer,
-  suggestTopic,
-} from '../shared/destination';
-import { APP_STORES, type AppStore, type PanelState, type PanelStrings } from '../shared/protocol';
+  SETUP_WAYS,
+  type DestinationStrings,
+  type DestinationView,
+  type PanelState,
+  type SetupWay,
+  type TailscaleView,
+} from '../shared/protocol';
+import { DestinationForm, type FormMode } from './destinationForm';
 import { button, element, fill } from './dom';
-import { Field } from './field';
 import { vscode } from './vscodeApi';
 
-const NTFY_SH = 'https://ntfy.sh';
+type View = 'list' | 'choose' | 'form';
 
 export class DestinationCard {
   readonly element = element('div', 'ng-destination');
-  private readonly summary = element('div', 'ng-summary');
-  private readonly summaryText = element('p', 'ng-summary-text');
-  private readonly form = element('form', 'ng-form');
-  private readonly appStep: HTMLLIElement;
-  private readonly useNtfySh: HTMLButtonElement;
-  private readonly server: Field;
-  private readonly topic: Field;
-  /** How to subscribe on one's own server, with its address. */
-  private readonly ownServer = element('p', 'ng-help');
-  private readonly token: Field;
-  private readonly noServer = element('p', 'ng-help');
-  private readonly addToken: HTMLButtonElement;
-  private readonly removeToken: HTMLButtonElement;
-  private readonly copy: HTMLButtonElement;
-  private readonly submit: HTMLButtonElement;
-  private readonly cancel: HTMLButtonElement;
-  private readonly sendTest: HTMLButtonElement;
+  private readonly list = element('ul', 'ng-dest-list');
+  private readonly add: HTMLButtonElement;
+  private readonly chooser = element('div', 'ng-chooser');
+  private readonly chooserCancel: HTMLButtonElement;
+  private readonly form: DestinationForm;
   private readonly result = element('p', 'ng-result');
-  private state: PanelState | undefined;
+  private destinations: DestinationView[] = [];
+  private view: View = 'list';
   private busy = false;
-  /** The user asked to change a destination that works. */
-  private editing = false;
-  private tokenOpen = false;
-  private copiedTimer: ReturnType<typeof setTimeout> | undefined;
+  private readonly testButtons: HTMLButtonElement[] = [];
 
   constructor(
-    private readonly strings: PanelStrings,
+    private readonly s: DestinationStrings,
+    private readonly sending: string,
     private readonly time: (ms: number) => string,
   ) {
-    const s = strings;
+    this.list.setAttribute('aria-label', s.title);
+    this.add = button(s.add, 'secondary');
+    const addRow = element('div', 'ng-row ng-add');
+    addRow.append(this.add);
 
-    this.sendTest = button(s.sendTest, 'secondary');
-    const change = button(s.change, 'secondary');
-    const summaryActions = element('div', 'ng-row');
-    summaryActions.append(this.sendTest, change);
-    this.summary.append(this.summaryText, summaryActions);
-
-    const stores = element('div', 'ng-row ng-stores');
-    for (const [store, name] of Object.entries(APP_STORES) as [AppStore, string][]) {
-      const link = button(name, 'link');
-      link.addEventListener('click', () => vscode.postMessage({ type: 'openAppStore', store }));
-      stores.append(link);
+    const ways = element('div', 'ng-ways');
+    for (const way of SETUP_WAYS) {
+      const tile = element('button', 'ng-way');
+      tile.type = 'button';
+      const title = element('span', 'ng-way-title', s.ways[way].title);
+      if (way === 'ntfy-sh') title.append(' ', element('span', 'ng-badge', s.easiest));
+      tile.append(title, element('span', 'ng-way-help', s.ways[way].help));
+      tile.addEventListener('click', () => this.openForm({ way }));
+      ways.append(tile);
     }
-    const app = step(s.steps.app);
-    app.body.append(stores);
-    this.appStep = app.element;
+    this.chooserCancel = button(s.cancel, 'secondary');
+    const lead = element('h3', 'ng-step-title', s.chooseLead);
+    this.chooser.append(lead, ways, this.chooserCancel);
 
-    // No server is filled in for the user: ntfy.sh is one click, and nothing is sent before Save.
-    this.useNtfySh = button(s.useNtfySh, 'secondary');
-    this.server = new Field('ng-server', s.server, { sides: [this.useNtfySh], hideLabel: true });
-    this.server.input.type = 'url';
-    this.server.input.placeholder = 'https://…';
-    this.addToken = button(s.addToken, 'link');
-    this.removeToken = button(s.removeToken, 'secondary');
-    this.token = new Field('ng-token', s.token, {
-      help: s.tokenHelp,
-      sides: [this.removeToken],
-      stacked: true,
-    });
-    this.token.input.type = 'password';
-    const server = step(s.steps.server);
-    server.body.append(this.server.element, this.addToken, this.token.element);
-
-    this.copy = button(s.copyTopic, 'secondary');
-    const random = button(s.randomTopic, 'secondary');
-    this.topic = new Field('ng-topic', s.topic, {
-      help: s.topicHelp,
-      sides: [this.copy, random],
-      hideLabel: true,
-    });
-    const topic = step(s.steps.topic);
-    topic.help.after(this.ownServer);
-    topic.body.append(this.topic.element);
-
-    this.submit = button(s.saveAndTest, 'primary');
-    this.submit.type = 'submit';
-    this.cancel = button(s.cancel, 'secondary');
-    const actions = element('div', 'ng-row');
-    actions.append(this.submit, this.cancel, this.noServer);
-    const test = step(s.steps.test);
-    test.body.append(actions);
-
-    const steps = element('ol', 'ng-steps');
-    steps.append(app.element, server.element, topic.element, test.element);
-    this.form.noValidate = true;
-    this.form.append(steps);
+    this.form = new DestinationForm(s, sending, (how) =>
+      this.show(how === 'back' ? 'choose' : 'list'),
+    );
 
     this.result.setAttribute('role', 'status');
     this.result.setAttribute('aria-live', 'polite');
-    this.element.append(this.summary, this.form, this.result);
+    this.element.append(this.list, addRow, this.chooser, this.form.element, this.result);
 
-    for (const field of [this.server, this.topic, this.token]) {
-      field.input.addEventListener('input', () => this.check());
-      field.input.addEventListener('blur', () => this.check());
-    }
-    this.useNtfySh.addEventListener('click', () => {
-      this.server.input.value = NTFY_SH;
-      this.server.touched = true;
-      this.check();
+    this.add.addEventListener('click', () => {
+      this.show('choose');
+      this.chooser.querySelector<HTMLElement>('.ng-way')?.focus();
     });
-    this.addToken.addEventListener('click', () => {
-      this.tokenOpen = true;
-      this.render();
-      this.token.input.focus();
-    });
-    this.removeToken.addEventListener('click', () => vscode.postMessage({ type: 'removeToken' }));
-    this.copy.addEventListener('click', () => {
-      vscode.postMessage({ type: 'copyTopic', topic: this.topic.value });
-      this.copy.textContent = s.copied;
-      clearTimeout(this.copiedTimer);
-      this.copiedTimer = setTimeout(() => (this.copy.textContent = s.copyTopic), 2000);
-    });
-    random.addEventListener('click', () => {
-      this.topic.input.value = suggestTopic();
-      this.topic.touched = true;
-      this.check();
-      this.topic.input.focus();
-    });
-    this.form.addEventListener('submit', (event) => {
-      event.preventDefault();
-      this.save();
-    });
-    this.cancel.addEventListener('click', () => this.stopEditing());
-    change.addEventListener('click', () => {
-      this.editing = true;
-      this.render();
-      this.server.input.focus();
-    });
-    this.sendTest.addEventListener('click', () => vscode.postMessage({ type: 'sendTest' }));
+    this.chooserCancel.addEventListener('click', () => this.show('list'));
   }
 
-  show(state: PanelState): void {
-    const previous = this.state;
-    // Fields the user has not edited follow the settings; edited ones keep what was typed.
-    if (!previous || this.server.input.value === previous.server) {
-      this.server.input.value = state.server;
+  show(view: View): void;
+  show(state: PanelState): void;
+  show(arg: View | PanelState): void {
+    if (typeof arg === 'string') {
+      this.view = arg;
+    } else {
+      const hadAny = this.destinations.length > 0;
+      this.destinations = arg.destinations;
+      // A first destination saved elsewhere, such as from the Command Palette, ends the choice.
+      if (!hadAny && this.destinations.length > 0 && this.view === 'choose') this.view = 'list';
+      this.renderList();
+      this.form.update(this.destinations);
     }
-    if (!previous || this.topic.input.value === previous.topic) {
-      // A first setup starts from a name nobody can guess.
-      this.topic.input.value = state.topic !== '' ? state.topic : suggestTopic();
-    }
-    this.state = state;
-    this.token.input.placeholder = state.hasToken ? this.strings.tokenSaved : '';
-    this.removeToken.hidden = !state.hasToken;
-    this.summaryText.replaceChildren(
-      ...fill(
-        this.strings.sendingTo,
-        element('strong', undefined, state.topic),
-        element('strong', undefined, hostOf(state.server)),
-      ),
-    );
-    this.render();
+    // With nothing listed, the card always offers the ways; there is no list to go back to.
+    if (this.view === 'list' && this.destinations.length === 0) this.view = 'choose';
+    this.list.hidden = this.view !== 'list';
+    this.add.parentElement!.hidden = this.view !== 'list';
+    this.chooser.hidden = this.view !== 'choose';
+    this.chooserCancel.hidden = this.destinations.length === 0;
+    this.form.element.hidden = this.view !== 'form';
+  }
+
+  /** The Command Palette asked for a way's guide. */
+  guide(way: SetupWay): void {
+    this.openForm({ way });
   }
 
   setBusy(busy: boolean): void {
     this.busy = busy;
-    this.check();
-  }
-
-  saved(): void {
-    // As the settings store them, so the fields follow the settings again.
-    this.server.input.value = normalizeServer(this.server.input.value);
-    this.topic.input.value = this.topic.value;
-    this.token.input.value = '';
-    this.token.touched = false;
-    this.editing = false;
-    this.tokenOpen = false;
-    this.render();
-  }
-
-  sent(time: number, error?: string): void {
-    if (error === undefined) {
-      this.say(this.strings.sentAt.replace('{0}', this.time(time)));
-    } else {
-      this.say(error, true);
+    this.form.setBusy(busy);
+    for (const test of this.testButtons) {
+      test.disabled = busy || test.dataset.problem !== undefined;
+      test.textContent = busy ? this.sending : this.s.sendTest;
+      test.setAttribute('aria-label', `${test.textContent}: ${test.dataset.name ?? ''}`);
     }
+  }
+
+  /** The form was saved: back to the list, where the test result comes. */
+  saved(): void {
+    this.show('list');
+  }
+
+  notSaved(error: string): void {
+    this.say(error, true);
+  }
+
+  sent(time: number, error?: string, to?: string): void {
+    if (error !== undefined) {
+      this.say(error, true);
+    } else if (to !== undefined) {
+      this.say(this.s.sentTo.replace('{0}', this.time(time)).replace('{1}', to));
+    } else {
+      this.say(this.s.sentAt.replace('{0}', this.time(time)));
+    }
+  }
+
+  showTailscale(status: TailscaleView): void {
+    this.form.showTailscale(status);
+  }
+
+  private openForm(mode: FormMode): void {
+    this.say('');
+    this.form.open(mode, this.destinations);
+    this.show('form');
+    this.form.focus();
   }
 
   private say(text: string, failed = false): void {
     this.result.textContent = text;
     this.result.classList.toggle('ng-failed', failed);
+    this.result.classList.toggle('ng-ok', !failed && text !== '');
   }
 
-  /** Steps until it works, or while the user changes it; one line once it works. */
-  private render(): void {
-    const ready = this.state?.status === 'ready';
-    const open = !ready || this.editing;
-    this.summary.hidden = open;
-    this.form.hidden = !open;
-    // Whoever changes a working setup has the app already.
-    this.appStep.hidden = ready;
-    this.cancel.hidden = !ready;
-    const token = this.state?.hasToken === true || this.tokenOpen || this.token.value !== '';
-    this.token.element.hidden = !token;
-    this.addToken.hidden = token;
-    this.check();
-  }
+  private renderList(): void {
+    const s = this.s;
+    // One destination that is on has nothing to switch: Pause stops it for a while. One that is
+    // off, though, needs its box to come back on.
+    const several =
+      this.destinations.length > 1 || this.destinations.some((destination) => !destination.enabled);
+    this.testButtons.length = 0;
+    this.list.replaceChildren(
+      ...this.destinations.map((destination, index) => {
+        const row = element('li', 'ng-dest');
+        row.classList.toggle('ng-off', !destination.enabled);
+        const id = `ng-dest-${index}`;
+        if (several) {
+          const box = element('input', 'ng-checkbox');
+          box.type = 'checkbox';
+          box.id = id;
+          box.checked = destination.enabled;
+          // The box says what it does, not only whose it is.
+          box.title = s.sendHere;
+          box.setAttribute('aria-label', `${s.sendHere}: ${displayName(destination)}`);
+          box.addEventListener('change', () =>
+            vscode.postMessage({ type: 'setEnabled', key: destination.key, enabled: box.checked }),
+          );
+          row.append(box);
+        }
+        const text = element('div', 'ng-dest-text');
+        const name = element(several ? 'label' : 'span', 'ng-dest-name', displayName(destination));
+        if (name instanceof HTMLLabelElement) name.htmlFor = id;
+        const where = element('p', 'ng-help');
+        const topic = element('strong', undefined, destination.topic);
+        // Without a name the host is the title already.
+        where.append(
+          ...(destination.name.trim() === ''
+            ? fill(s.topicOnly, topic)
+            : fill(s.topicOn, topic, element('strong', undefined, hostOf(destination.server)))),
+        );
+        text.append(name, where);
+        if (!destination.enabled) text.append(element('p', 'ng-help', s.offNote));
+        if (destination.problem) {
+          text.append(element('p', 'ng-warning', s.problem[destination.problem]));
+        }
 
-  private stopEditing(): void {
-    const state = this.state;
-    if (state) {
-      this.server.input.value = state.server;
-      this.topic.input.value = state.topic;
-    }
-    this.token.input.value = '';
-    this.server.touched = this.topic.touched = this.token.touched = false;
-    this.editing = false;
-    this.tokenOpen = false;
-    this.render();
-  }
-
-  private dirty(): boolean {
-    const state = this.state;
-    if (!state) return false;
-    return (
-      normalizeServer(this.server.value) !== normalizeServer(state.server) ||
-      this.topic.value !== state.topic.trim() ||
-      this.token.value !== ''
+        const test = button(this.busy ? this.sending : s.sendTest, 'secondary');
+        test.dataset.name = displayName(destination);
+        if (destination.problem) test.dataset.problem = destination.problem;
+        test.disabled = this.busy || destination.problem !== undefined;
+        this.testButtons.push(test);
+        const edit = button(s.edit, 'secondary');
+        const remove = button(s.remove, 'secondary');
+        // Screen readers hear which destination each button is for.
+        for (const action of [test, edit, remove]) {
+          action.setAttribute('aria-label', `${action.textContent}: ${displayName(destination)}`);
+        }
+        const actions = element('div', 'ng-dest-actions');
+        actions.append(test, edit, remove);
+        test.addEventListener('click', () =>
+          vscode.postMessage({ type: 'sendTest', key: destination.key }),
+        );
+        edit.addEventListener('click', () => this.openForm({ way: 'edit', destination }));
+        remove.addEventListener('click', () =>
+          vscode.postMessage({ type: 'removeDestination', key: destination.key }),
+        );
+        row.append(text, actions);
+        return row;
+      }),
     );
-  }
-
-  /** Shows errors and turns the buttons on and off for what the form holds now. */
-  private check(): void {
-    const s = this.strings;
-    const state = this.state;
-    const server = normalizeServer(this.server.value);
-    const topic = this.topic.value;
-    const token = this.token.value;
-    const serverOk = isServerUrl(server);
-    const topicOk = isTopic(topic);
-    const tokenOk = token === '' || isToken(token);
-    // A saved value that is wrong shows its error at once; a new one after the field is left.
-    const visible = (field: Field, saved: string | undefined) =>
-      field.touched || (saved !== undefined && saved.trim() !== '' && field.input.value === saved);
-    this.server.showError(
-      server !== '' && !serverOk && visible(this.server, state?.server)
-        ? s.serverInvalid
-        : undefined,
-    );
-    this.topic.showError(
-      topic !== '' && !topicOk && visible(this.topic, state?.topic) ? s.topicInvalid : undefined,
-    );
-    this.token.showError(!tokenOk && this.token.touched ? s.tokenInvalid : undefined);
-
-    // Without a server the next click is Use ntfy.sh, so it stands out until one is entered.
-    this.useNtfySh.classList.toggle('ng-primary', server === '');
-    this.useNtfySh.classList.toggle('ng-secondary', server !== '');
-    this.noServer.textContent = server === '' ? s.chooseServerFirst : '';
-    const own = serverOk && hostOf(server) !== 'ntfy.sh';
-    this.ownServer.hidden = !own;
-    this.ownServer.textContent = own ? s.topicOwnServer.replace('{0}', server) : '';
-
-    const ready = state?.status === 'ready';
-    const valid = serverOk && topicOk && tokenOk;
-    this.submit.disabled = this.busy || !valid || (ready && !this.dirty());
-    this.submit.textContent = this.busy ? s.sending : s.saveAndTest;
-    this.sendTest.disabled = this.busy || !ready;
-    this.sendTest.textContent = this.busy ? s.sending : s.sendTest;
-    this.copy.disabled = !topicOk;
-  }
-
-  private save(): void {
-    this.server.touched = this.topic.touched = this.token.touched = true;
-    this.check();
-    if (this.submit.disabled) return;
-    vscode.postMessage({
-      type: 'save',
-      server: this.server.value,
-      topic: this.topic.value,
-      token: this.token.value,
-      test: true,
-    });
-  }
-}
-
-/** A numbered step: its title, what to do, and its controls. */
-function step(text: { title: string; help: string }) {
-  const node = element('li', 'ng-step');
-  const help = element('p', 'ng-help', text.help);
-  const body = element('div', 'ng-step-body');
-  node.append(element('h3', 'ng-step-title', text.title), help, body);
-  return { element: node, help, body };
-}
-
-/** "ntfy.sh" for https://ntfy.sh: the name people know the server by. */
-function hostOf(server: string): string {
-  try {
-    return new URL(server).host || server;
-  } catch {
-    return server;
   }
 }

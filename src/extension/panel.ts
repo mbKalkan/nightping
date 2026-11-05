@@ -2,11 +2,21 @@ import * as vscode from 'vscode';
 import type {
   AgentKind,
   AppStore,
+  DestinationView,
+  GuideLink,
   HostToWebviewMessage,
   PanelState,
+  SetupWay,
   WebviewToHostMessage,
 } from '../shared/protocol';
-import { isServerUrl, isToken, isTopic, normalizeServer } from './config';
+import { displayName, isName, isServerUrl, isToken, isTopic, normalizeServer } from './config';
+import {
+  currentDestinations,
+  isTokenKey,
+  saveDestination,
+  setEnabled,
+  tokenKey,
+} from './destinations';
 import { samplePreviews } from './format';
 import type { History } from './history';
 import { readMessage } from './message';
@@ -14,13 +24,8 @@ import type { Message } from './ntfy';
 import type { Pauser } from './pause';
 import type { AgentBridge } from './agentBridge';
 import { settingFor } from './prefs';
-import {
-  currentDestination,
-  currentPrefs,
-  saveDestination,
-  TOKEN_KEY,
-  type Sender,
-} from './sender';
+import { currentPrefs, type Sender } from './sender';
+import { tailscaleStatus } from './tailscale';
 import { notReadyText, panelStrings, testMessage } from './texts';
 import { buildWebviewHtml } from './webviewHtml';
 
@@ -55,6 +60,13 @@ const APP_STORE_PAGES: Record<AppStore, string> = {
   'f-droid': 'https://f-droid.org/en/packages/io.heckel.ntfy/',
   'app-store': 'https://apps.apple.com/us/app/ntfy/id1625396347',
 };
+const GUIDE_PAGES: Record<GuideLink, string> = {
+  'tailscale-download': 'https://tailscale.com/download',
+  'tailscale-dns': 'https://login.tailscale.com/admin/dns',
+  'ntfy-install': 'https://docs.ntfy.sh/install/',
+};
+/** Longer text is not a topic or a command of the guide. */
+const COPY_LIMIT = 2000;
 
 export interface PanelContext {
   extensionUri: vscode.Uri;
@@ -71,9 +83,11 @@ export interface PanelContext {
 export class Panel {
   private static current: Panel | undefined;
 
-  static show(context: PanelContext): void {
+  /** With `way`, opens that way's guide, as the Command Palette asks for Tailscale. */
+  static show(context: PanelContext, way?: SetupWay): void {
     if (Panel.current) {
       Panel.current.panel.reveal();
+      if (way) Panel.current.openGuide(way);
       return;
     }
     const dist = vscode.Uri.joinPath(context.extensionUri, 'dist');
@@ -84,11 +98,14 @@ export class Panel {
       { enableScripts: true, localResourceRoots: [dist], retainContextWhenHidden: true },
     );
     Panel.current = new Panel(panel, dist, context);
+    if (way) Panel.current.openGuide(way);
   }
 
   private readonly disposables: vscode.Disposable[] = [];
   private ready = false;
   private updating = 0;
+  /** A guide asked for before the panel was ready. */
+  private pendingWay: SetupWay | undefined;
 
   private constructor(
     private readonly panel: vscode.WebviewPanel,
@@ -108,7 +125,7 @@ export class Panel {
         if (event.affectsConfiguration('nightping')) void this.update();
       }),
       context.secrets.onDidChange((event) => {
-        if (event.key === TOKEN_KEY) void this.update();
+        if (isTokenKey(event.key)) void this.update();
       }),
       context.history.onDidChange(() => void this.update()),
       context.pauser.onDidChange(() => void this.update()),
@@ -132,27 +149,56 @@ export class Panel {
           strings: panelStrings(vscode.l10n.t),
         });
         await this.update();
+        if (this.pendingWay) this.openGuide(this.pendingWay);
         return;
       case 'save': {
         // The panel checks the same rules; this keeps a bad message from reaching the settings.
-        const { server, topic, token } = message;
+        const { previous, name, server, topic, token } = message;
         if (
+          (previous !== undefined && typeof previous !== 'string') ||
+          typeof name !== 'string' ||
           typeof server !== 'string' ||
           typeof topic !== 'string' ||
           typeof token !== 'string' ||
+          !isName(name) ||
           !isServerUrl(normalizeServer(server)) ||
           !isTopic(topic.trim()) ||
           (token.trim() !== '' && !isToken(token.trim()))
         ) {
           return;
         }
-        await saveDestination(this.context.secrets, server, topic, token);
+        const saved = await saveDestination(
+          this.context.secrets,
+          { name, server, topic, token },
+          previous,
+        );
+        if (!saved.ok) {
+          this.post({
+            type: 'notSaved',
+            error: panelStrings(vscode.l10n.t).destinations.duplicate,
+          });
+          return;
+        }
         this.post({ type: 'saved' });
-        if (message.test === true) await this.sendTest();
+        if (message.test === true) await this.sendTest(saved.key);
         return;
       }
       case 'sendTest':
-        await this.sendTest();
+        await this.sendTest(typeof message.key === 'string' ? message.key : undefined);
+        return;
+      case 'removeDestination':
+        // The command asks first, as it does from the Command Palette.
+        if (typeof message.key === 'string') {
+          await vscode.commands.executeCommand('nightping.removeDestination', message.key);
+        }
+        return;
+      case 'setEnabled':
+        if (typeof message.key === 'string' && typeof message.enabled === 'boolean') {
+          await setEnabled(message.key, message.enabled);
+        }
+        return;
+      case 'findTailscale':
+        this.post({ type: 'tailscale', status: await tailscaleStatus() });
         return;
       case 'send': {
         // The panel waits for an answer, so even a message it should not have sent gets one.
@@ -164,9 +210,11 @@ export class Panel {
         this.post({ type: 'messageResult', time: Date.now(), error });
         return;
       }
-      case 'removeToken':
-        await this.context.secrets.delete(TOKEN_KEY);
+      case 'removeToken': {
+        const entry = currentDestinations().entries.find((item) => item.key === message.key);
+        if (entry) await this.context.secrets.delete(tokenKey(entry.server));
         return;
+      }
       case 'clearHistory':
         await this.context.history.clear();
         return;
@@ -205,34 +253,59 @@ export class Panel {
         if (page) await vscode.env.openExternal(vscode.Uri.parse(page));
         return;
       }
-      case 'copyTopic':
-        if (typeof message.topic === 'string' && isTopic(message.topic.trim())) {
-          await vscode.env.clipboard.writeText(message.topic.trim());
+      case 'openGuide': {
+        const page = Object.hasOwn(GUIDE_PAGES, message.link)
+          ? GUIDE_PAGES[message.link]
+          : undefined;
+        if (page) await vscode.env.openExternal(vscode.Uri.parse(page));
+        return;
+      }
+      case 'copy':
+        if (typeof message.text === 'string' && message.text.length <= COPY_LIMIT) {
+          await vscode.env.clipboard.writeText(message.text.trim());
         }
         return;
     }
   }
 
-  private async sendTest(): Promise<void> {
+  private openGuide(way: SetupWay): void {
+    if (this.ready) {
+      this.pendingWay = undefined;
+      this.post({ type: 'guide', way });
+    } else {
+      this.pendingWay = way;
+    }
+  }
+
+  /** To one destination, or without `key` to every one that is on. */
+  private async sendTest(key?: string): Promise<void> {
     this.post({ type: 'busy', busy: true });
     try {
-      const error = await this.deliver(testMessage(vscode.l10n.t));
-      this.post({ type: 'result', time: Date.now(), error });
+      const error = await this.deliver(testMessage(vscode.l10n.t), key);
+      const entry = key
+        ? currentDestinations().entries.find((item) => item.key === key)
+        : undefined;
+      this.post({
+        type: 'result',
+        time: Date.now(),
+        error,
+        ...(entry ? { to: displayName(entry) } : {}),
+      });
     } finally {
       this.post({ type: 'busy', busy: false });
     }
   }
 
   /** Sends, and says why when nothing went out. */
-  private async deliver(message: Message): Promise<string | undefined> {
-    const outcome = await this.context.sender.send(message);
+  private async deliver(message: Message, only?: string): Promise<string | undefined> {
+    const outcome = await this.context.sender.send(message, only);
     switch (outcome.kind) {
       case 'sent':
         return undefined;
       case 'failed':
         return outcome.text;
       case 'not-ready':
-        return notReadyText(vscode.l10n.t, outcome.state.kind);
+        return notReadyText(vscode.l10n.t, outcome.state);
     }
   }
 
@@ -240,13 +313,16 @@ export class Panel {
     if (!this.ready) return;
     // A slower, older update must not replace a newer one.
     const id = ++this.updating;
-    const values = vscode.workspace.getConfiguration('nightping');
-    const destination = currentDestination();
+    const destinations = currentDestinations();
+    const views: DestinationView[] = [];
+    for (const entry of destinations.entries) {
+      const hasToken = (await this.context.secrets.get(tokenKey(entry.server))) !== undefined;
+      const { key, name, server, topic, enabled, problem } = entry;
+      views.push({ key, name, server, topic, enabled, hasToken, ...(problem ? { problem } : {}) });
+    }
     const state: PanelState = {
-      server: values.get<string>('server') ?? '',
-      topic: values.get<string>('topic') ?? '',
-      hasToken: (await this.context.secrets.get(TOKEN_KEY)) !== undefined,
-      status: destination.kind,
+      destinations: views,
+      status: destinations.kind,
       history: this.context.history.entries(),
       pause: this.context.pauser.current(),
       prefs: currentPrefs(),

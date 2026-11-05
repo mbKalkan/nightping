@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **More than one destination.** Notifications can go to several topics, on ntfy.sh, your own server or both, and every destination that is on gets every notification. The panel's **Where notifications go** card lists them with **Send Test**, **Edit** and **Remove**, a checkbox turns one off without removing it, and **Add Another Destination** adds the next. **Recent notifications** says **Partly sent** and names the destinations that failed.
+- **Guided setup in three ways.** The panel asks how notifications should reach your phone and walks you through the way you pick: ntfy.sh, your own ntfy server, or your own server over Tailscale. The Tailscale guide checks the `tailscale` command on this computer, lists your Tailscale computers so you can pick the server and get its `https://….ts.net` address, shows the two commands to run there (ntfy with Docker, then `tailscale serve`) with the address filled in, and says how to subscribe on the phone.
+- **Nightping: Add a Destination…** (formerly **Set Up…**) asks which way first; for Tailscale it opens the panel's guide. **Nightping: Remove a Destination…** removes one after asking. **Set Access Token…** and **Clear Access Token** ask which server when there is more than one.
+
+### Changed
+
+- The settings `nightping.server` and `nightping.topic` are replaced by the list `nightping.destinations`. The first time the new version starts, a saved server and topic become the first destination, and their access token moves with them. Access tokens are now kept per server.
+
 ### Fixed
 
 - **Only when I am not using VS Code** now looks at every VS Code window on this computer. An agent's finished turn arrived as a notification while you worked in another VS Code window, because only one window receives the agents' events and it looked at itself. A task or command that finishes in one window now also stays quiet while you work in another.
