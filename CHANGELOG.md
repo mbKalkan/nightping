@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-05
+
+Notifications to more than one place, a guided setup for ntfy.sh, your own server or your own server over Tailscale (from the server computer itself too), setup steps you can hand to your AI agent, and quiet while you work in any VS Code window.
+
 ### Added
 
 - **More than one destination.** Notifications can go to several topics, on ntfy.sh, your own server or both, and every destination that is on gets every notification. The panel's **Where notifications go** card lists them with **Send Test**, **Edit** and **Remove**, a checkbox turns one off without removing it, and **Add Another Destination** adds the next. **Recent notifications** says **Partly sent** and names the destinations that failed.
@@ -48,4 +52,5 @@ First release: phone notifications through your own ntfy server when VS Code tas
 - **Nightping: Send Test Notification**, and when it fails, a plain reason with the next step: the server needs or refused the token, redirects elsewhere, cannot be reached, or does not answer within 10 seconds.
 - **Nightping: Set Access Token…** and **Clear Access Token**. The token is kept in VS Code's secret storage on this computer, never in the settings.
 
+[0.2.0]: https://github.com/mbKalkan/nightping/releases/tag/v0.2.0
 [0.1.0]: https://github.com/mbKalkan/nightping/releases/tag/v0.1.0
