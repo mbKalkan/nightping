@@ -47,6 +47,7 @@ const tests: Record<string, () => Promise<void>> = {
       'nightping.send',
       'nightping.setToken',
       'nightping.clearToken',
+      'nightping.removeDestination',
       'nightping.pause',
       'nightping.resume',
       'nightping.connectClaudeCode',
@@ -82,10 +83,9 @@ const tests: Record<string, () => Promise<void>> = {
     await vscode.window.tabGroups.close(open);
   },
 
-  async 'starts without a server or topic'() {
+  async 'starts without a destination'() {
     const settings = vscode.workspace.getConfiguration('nightping');
-    assert.equal(settings.get('server'), '');
-    assert.equal(settings.get('topic'), '');
+    assert.deepEqual(settings.get('destinations'), []);
   },
 
   async 'sends nothing while it is not set up'() {
@@ -100,10 +100,9 @@ const tests: Record<string, () => Promise<void>> = {
 
   async 'sends a test notification to the server and topic in the settings'() {
     const ntfy = await fakeNtfy();
-    const settings = vscode.workspace.getConfiguration('nightping');
-    const global = vscode.ConfigurationTarget.Global;
-    await settings.update('server', `${ntfy.server}/`, global);
-    await settings.update('topic', 'smoke-test', global);
+    const reset = await useSettings({
+      destinations: [{ server: `${ntfy.server}/`, topic: 'smoke-test' }],
+    });
     try {
       await vscode.commands.executeCommand('nightping.sendTest');
       assert.equal(ntfy.requests.length, 1);
@@ -114,8 +113,30 @@ const tests: Record<string, () => Promise<void>> = {
       assert.equal(body.topic, 'smoke-test');
       assert.equal(body.title, 'Nightping test');
     } finally {
-      await settings.update('server', undefined, global);
-      await settings.update('topic', undefined, global);
+      await reset();
+      await ntfy.close();
+    }
+  },
+
+  async 'sends to every destination that is on, and a test to one of them'() {
+    const ntfy = await fakeNtfy();
+    const reset = await useSettings({
+      destinations: [
+        { server: ntfy.server, topic: 'first' },
+        { name: 'Off', server: ntfy.server, topic: 'off', enabled: false },
+        { server: ntfy.server, topic: 'second' },
+      ],
+    });
+    try {
+      await vscode.commands.executeCommand('nightping.sendTest');
+      const topics = ntfy.requests.map((request) => (JSON.parse(request.body) as Body).topic);
+      assert.deepEqual(topics.sort(), ['first', 'second']);
+      // A test to one destination reaches it even while it is off.
+      await vscode.commands.executeCommand('nightping.sendTest', `${ntfy.server}/off`);
+      assert.equal(ntfy.requests.length, 3);
+      assert.equal((JSON.parse(ntfy.requests[2].body) as Body).topic, 'off');
+    } finally {
+      await reset();
       await ntfy.close();
     }
   },
@@ -623,12 +644,23 @@ async function until(probe: () => Promise<boolean>, timeoutMs = 30_000): Promise
 }
 
 /** Sets `nightping.*` user settings; the returned function puts the defaults back. */
+/** The ntfy message body, as far as the tests read it. */
+interface Body {
+  topic: string;
+}
+
+/** Sets settings until the returned function resets them; `server` and `topic` make one destination. */
 async function useSettings(values: Record<string, unknown>): Promise<() => Promise<void>> {
+  const { server, topic, ...rest } = values;
+  const entries = Object.entries(rest);
+  if (server !== undefined || topic !== undefined) {
+    entries.unshift(['destinations', [{ server, topic }]]);
+  }
   const settings = vscode.workspace.getConfiguration('nightping');
   const global = vscode.ConfigurationTarget.Global;
-  for (const [key, value] of Object.entries(values)) await settings.update(key, value, global);
+  for (const [key, value] of entries) await settings.update(key, value, global);
   return async () => {
-    for (const key of Object.keys(values)) await settings.update(key, undefined, global);
+    for (const [key] of entries) await settings.update(key, undefined, global);
   };
 }
 

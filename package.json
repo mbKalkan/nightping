@@ -160,6 +160,11 @@
         "category": "%category%"
       },
       {
+        "command": "nightping.removeDestination",
+        "title": "%command.removeDestination%",
+        "category": "%category%"
+      },
+      {
         "command": "nightping.openSettings",
         "title": "%command.openSettings%",
         "category": "%category%"
@@ -204,19 +209,57 @@
     "configuration": {
       "title": "Nightping",
       "properties": {
+        "nightping.destinations": {
+          "type": "array",
+          "default": [],
+          "scope": "application",
+          "order": 1,
+          "markdownDescription": "%config.destinations%",
+          "items": {
+            "type": "object",
+            "required": [
+              "server",
+              "topic"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 40,
+                "description": "%config.destinations.name%"
+              },
+              "server": {
+                "type": "string",
+                "description": "%config.destinations.server%"
+              },
+              "topic": {
+                "type": "string",
+                "pattern": "^[-_A-Za-z0-9]{1,64}$",
+                "description": "%config.destinations.topic%"
+              },
+              "enabled": {
+                "type": "boolean",
+                "default": true,
+                "description": "%config.destinations.enabled%"
+              }
+            }
+          }
+        },
         "nightping.server": {
           "type": "string",
           "default": "",
           "scope": "application",
-          "order": 1,
-          "markdownDescription": "%config.server%"
+          "order": 2,
+          "markdownDescription": "%config.server%",
+          "markdownDeprecationMessage": "%config.server.deprecated%"
         },
         "nightping.topic": {
           "type": "string",
           "default": "",
           "scope": "application",
           "order": 2,
-          "markdownDescription": "%config.topic%"
+          "markdownDescription": "%config.topic%",
+          "markdownDeprecationMessage": "%config.server.deprecated%"
         },
         "nightping.notifyOn.tasks": {
           "type": "boolean",

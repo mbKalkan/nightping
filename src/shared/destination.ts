@@ -1,7 +1,21 @@
-// Rules for the server and topic, shared by the extension and the panel so both say the same.
+// Rules for destinations, shared by the extension and the panel so both say the same.
+
+/** One place notifications go: a topic on an ntfy server. */
+export interface Destination {
+  /** What the user calls it; empty shows the server's host instead. */
+  name: string;
+  /** Without a trailing slash, e.g. `https://ntfy.sh`. */
+  server: string;
+  topic: string;
+  /** Off keeps it in the list but sends nothing to it. */
+  enabled: boolean;
+}
+
+export const NTFY_SH = 'https://ntfy.sh';
 
 // ntfy's own rule for topic names.
 const TOPIC = /^[-_A-Za-z0-9]{1,64}$/;
+export const NAME_LIMIT = 40;
 
 /** Trims spaces and trailing slashes, the form the setting is stored and used in. */
 export function normalizeServer(value: string): string {
@@ -32,6 +46,32 @@ export function isTopic(value: string): boolean {
 /** What an HTTP header can carry: visible ASCII, no spaces. */
 export function isToken(value: string): boolean {
   return /^[\x21-\x7e]+$/.test(value);
+}
+
+export function isName(value: string): boolean {
+  return value.trim().length <= NAME_LIMIT;
+}
+
+/**
+ * Destinations are told apart by server and topic: the same pair twice would send every
+ * notification twice.
+ */
+export function destinationKey(destination: { server: string; topic: string }): string {
+  return `${normalizeServer(destination.server)}/${destination.topic.trim()}`;
+}
+
+/** "ntfy.sh" for https://ntfy.sh: the name people know the server by. */
+export function hostOf(server: string): string {
+  try {
+    return new URL(server).host || server;
+  } catch {
+    return server;
+  }
+}
+
+/** Its name, or the server's host when it has none. */
+export function displayName(destination: { name: string; server: string }): string {
+  return destination.name.trim() || hostOf(destination.server);
 }
 
 const ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';

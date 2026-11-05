@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import {
   clearToken,
   pause,
+  remove,
   resume,
   send,
   sendTest,
@@ -22,7 +23,8 @@ import { History } from './history';
 import { Panel } from './panel';
 import { Pauser } from './pause';
 import { folderBoard, Presence } from './presence';
-import { currentDestination, currentPrefs, Sender } from './sender';
+import { currentDestinations, migrateLegacy } from './destinations';
+import { currentPrefs, Sender } from './sender';
 import { watchSources } from './sources';
 import { StatusBar } from './statusBar';
 
@@ -65,7 +67,13 @@ export function activate(context: vscode.ExtensionContext): void {
       ),
     );
   }
-  const services: Services = { secrets, sender, pauser, claude };
+  const services: Services = {
+    secrets,
+    sender,
+    pauser,
+    claude,
+    openGuide: (way) => Panel.show(panel, way),
+  };
   const panel = {
     extensionUri: context.extensionUri,
     secrets,
@@ -80,7 +88,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const status = new StatusBar();
   const refresh = () => {
     const paused = pauser.current();
-    status.show(currentDestination(), paused, history.entries()[0]);
+    status.show(currentDestinations(), paused, history.entries()[0]);
     // Shows Pause or Resume in the Command Palette, whichever applies.
     void vscode.commands.executeCommand('setContext', 'nightping.paused', paused !== undefined);
   };
@@ -108,10 +116,19 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     vscode.commands.registerCommand('nightping.open', () => Panel.show(panel)),
     vscode.commands.registerCommand('nightping.setUp', () => setUp(services)),
-    vscode.commands.registerCommand('nightping.sendTest', () => sendTest(services)),
+    vscode.commands.registerCommand('nightping.sendTest', (key?: unknown) =>
+      sendTest(services, key),
+    ),
     vscode.commands.registerCommand('nightping.send', (input?: unknown) => send(services, input)),
-    vscode.commands.registerCommand('nightping.setToken', () => setToken(services)),
-    vscode.commands.registerCommand('nightping.clearToken', () => clearToken(services)),
+    vscode.commands.registerCommand('nightping.setToken', (server?: unknown) =>
+      setToken(services, server),
+    ),
+    vscode.commands.registerCommand('nightping.clearToken', (server?: unknown) =>
+      clearToken(services, server),
+    ),
+    vscode.commands.registerCommand('nightping.removeDestination', (key?: unknown) =>
+      remove(services, key),
+    ),
     vscode.commands.registerCommand('nightping.pause', (minutes?: unknown) =>
       pause(services, minutes),
     ),
@@ -136,6 +153,8 @@ export function activate(context: vscode.ExtensionContext): void {
   );
   // Also starts the timer of a pause left over from an earlier session.
   pauser.refresh();
+  // The one server and topic of 0.1.0 become the first destination.
+  void migrateLegacy(secrets).then(refresh);
   // Starts the endpoint when an agent's file has Nightping's hooks.
   for (const bridge of Object.values(agents)) void bridge.refresh();
 }

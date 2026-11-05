@@ -1,5 +1,7 @@
 // User-facing text that the panel and the commands share. Every message goes through `t`:
 // VS Code's `l10n.t` in the extension, a plain formatter in tests, so both show the same words.
+import { NAME_LIMIT } from '../shared/destination';
+import { NTFY_PORT } from '../shared/guide';
 import type { PanelStrings } from '../shared/protocol';
 import type { Message, PublishResult } from './ntfy';
 
@@ -46,73 +48,167 @@ export function panelStrings(t: Translate): PanelStrings {
     status: {
       ready: t('Ready'),
       incomplete: t('Not set up'),
+      off: t('Turned off'),
       invalid: t('Check the settings'),
     },
     pause: t('Pause Notifications…'),
     resume: t('Resume'),
     pausedUntil: t('Paused until {0}', '{0}'),
     pausedUntilResumed: t('Paused until you resume'),
-    destination: t('Your phone'),
-    steps: {
-      app: {
-        title: t('Install the ntfy app on your phone'),
-        help: t('ntfy is a free app that shows these notifications. Get it from:'),
+    destinations: {
+      title: t('Where notifications go'),
+      topicOn: t('Topic {0} on {1}', '{0}', '{1}'),
+      topicOnly: t('Topic {0}', '{0}'),
+      offNote: t('Turned off: nothing is sent here until you tick it.'),
+      sendHere: t('Send notifications here'),
+      problem: {
+        server: t('The server address in the settings is not valid. Click Edit to fix it.'),
+        topic: t('The topic in the settings is not valid. Click Edit to fix it.'),
       },
-      server: {
-        title: t('Choose a server'),
-        help: t(
-          'Notifications reach your phone through an ntfy server. No server of your own? Click Use ntfy.sh: it is free and needs no account.',
+      sendTest: t('Send Test'),
+      edit: t('Edit'),
+      remove: t('Remove'),
+      add: t('Add Another Destination'),
+      chooseLead: t('How should notifications reach your phone?'),
+      ways: {
+        'ntfy-sh': {
+          title: 'ntfy.sh',
+          help: t('A free public server. Ready in two minutes: you only install an app.'),
+        },
+        'own-server': {
+          title: t('Your own ntfy server'),
+          help: t('You already run ntfy, at home or at work, at an address this computer reaches.'),
+        },
+        tailscale: {
+          title: t('Your own server over Tailscale'),
+          help: t(
+            'Private: only your own devices reach the server. Nightping walks you through setting it up.',
+          ),
+        },
+      },
+      easiest: t('Easiest'),
+      otherWays: t('Choose another way'),
+      steps: {
+        tailscale: {
+          title: t('Put Tailscale on your devices'),
+          help: t(
+            'Tailscale joins your devices in a private network. Install it on this computer, on the computer that will run the server and on your phone, and sign in with the same account on all three.',
+          ),
+        },
+        app: {
+          title: t('Install the ntfy app on your phone'),
+          help: t('ntfy is a free app that shows these notifications. Get it from:'),
+        },
+        server: {
+          title: t('Enter your server'),
+          help: t('The address you open the ntfy web app with, such as https://ntfy.example.com.'),
+        },
+        pickServer: {
+          title: t('Choose the server'),
+          help: t(
+            'The computer that runs ntfy. It has to stay on and be on Tailscale; this computer works too.',
+          ),
+        },
+        run: {
+          title: t('Run ntfy on it'),
+          help: t(
+            'On that computer, run these two commands in a terminal. The first starts ntfy with Docker; the second lets only your Tailscale devices reach it, over HTTPS.',
+          ),
+        },
+        topic: {
+          title: t('Subscribe to this topic in the app'),
+          help: t(
+            'Open the ntfy app on your phone, tap + and enter this topic. Your notifications go out under this name.',
+          ),
+        },
+        topicOwn: {
+          title: t('Subscribe to this topic in the app'),
+          help: t(
+            'Open the ntfy app on your phone and tap +. Turn on “Use another server”, enter {0}, then this topic.',
+            '{0}',
+          ),
+        },
+        topicTailscale: {
+          title: t('Subscribe on your phone'),
+          help: t(
+            'Install the ntfy app and turn Tailscale on. In the app, tap +, turn on “Use another server”, enter {0}, then this topic.',
+            '{0}',
+          ),
+        },
+        save: {
+          title: t('Name it and send a test'),
+          help: t(
+            'The name is only for this list. The test should reach your phone within a few seconds.',
+          ),
+        },
+      },
+      server: t('Server address'),
+      serverInvalid: t(
+        'Enter an http:// or https:// address such as https://ntfy.sh, without a user name, password, ? or #.',
+      ),
+      topic: t('Topic'),
+      topicHelp: t(
+        'Anyone who knows the topic can read your notifications, so keep this random name.',
+      ),
+      topicInvalid: t('Use only letters, numbers, - and _, up to 64 characters.'),
+      duplicate: t('This topic on this server is already in the list.'),
+      copy: t('Copy'),
+      copied: t('Copied'),
+      randomTopic: t('New Name'),
+      addToken: t('My server needs an access token'),
+      token: t('Access token'),
+      tokenHelp: t(
+        'It is kept in the secret storage of VS Code on this computer, never in the settings.',
+      ),
+      tokenSaved: t('Saved. Type a new token to replace it.'),
+      tokenInvalid: t('An access token has no spaces or special characters.'),
+      removeToken: t('Remove'),
+      name: t('Name'),
+      nameHelp: t('Optional. Left empty, the list shows {0}.', '{0}'),
+      nameInvalid: t('Use up to {0} characters.', NAME_LIMIT),
+      saveAndTest: t('Save and Send Test'),
+      cancel: t('Cancel'),
+      sentTo: t(
+        'Sent to {1} at {0}. If it is not on your phone, check that the app is subscribed to its topic.',
+        '{0}',
+        '{1}',
+      ),
+      sentAt: t(
+        'Sent at {0}. If it is not on your phone, check that the app is subscribed to the topic.',
+        '{0}',
+      ),
+      tailscale: {
+        download: t('Download Tailscale'),
+        check: t('Check Again'),
+        checking: t('Looking for Tailscale on this computer…'),
+        state: {
+          ready: t('This computer is on Tailscale as {0}.', '{0}'),
+          missing: t('Tailscale is not on this computer yet. Install it, then click Check Again.'),
+          off: t('Tailscale is installed but not connected. Turn it on, then click Check Again.'),
+          'signed-out': t('Tailscale is installed. Sign in to it, then click Check Again.'),
+        },
+        thisComputer: t('this computer'),
+        offline: t('offline'),
+        offlineChosen: t('{0} is offline right now. Turn it on before you send the test.', '{0}'),
+        noDevices: t(
+          'No computer is on your Tailscale yet. Install Tailscale on the server, then click Check Again.',
         ),
-      },
-      topic: {
-        title: t('Subscribe to this topic in the app'),
-        help: t(
-          'Open the ntfy app on your phone, tap + and enter this topic. Your notifications go out under this name.',
+        noMagicDns: t(
+          'MagicDNS is off in your Tailscale, so your devices have no names to use as an address. Turn it on in the DNS settings of the Tailscale admin console.',
         ),
+        openDns: t('Open DNS Settings'),
+        typeAddress: t('Server address'),
       },
-      test: {
-        title: t('Send a test'),
-        help: t(
-          'Saves the settings and sends a test. It should reach your phone within a few seconds.',
+      run: {
+        placeholder: 'https://SERVER.TAILNET.ts.net',
+        otherWays: t('Other ways to install ntfy'),
+        note: t(
+          'No Docker? Install ntfy another way, have it listen on port {0}, then run the second command. The first time, tailscale serve shows a link to turn on HTTPS for your devices.',
+          NTFY_PORT,
         ),
       },
     },
-    server: t('Server'),
-    useNtfySh: t('Use ntfy.sh'),
-    serverInvalid: t(
-      'Enter an http:// or https:// address such as https://ntfy.sh, without a user name, password, ? or #.',
-    ),
-    topic: t('Topic'),
-    topicOwnServer: t(
-      'On your own server, also turn on “Use another server” in the app and enter {0}.',
-      '{0}',
-    ),
-    topicHelp: t(
-      'Anyone who knows the topic can read your notifications, so keep this random name.',
-    ),
-    topicInvalid: t('Use only letters, numbers, - and _, up to 64 characters.'),
-    copyTopic: t('Copy'),
-    copied: t('Copied'),
-    randomTopic: t('New Name'),
-    addToken: t('My server needs an access token'),
-    token: t('Access token'),
-    tokenHelp: t(
-      'It is kept in the secret storage of VS Code on this computer, never in the settings.',
-    ),
-    tokenSaved: t('Saved. Type a new token to replace it.'),
-    tokenInvalid: t('An access token has no spaces or special characters.'),
-    removeToken: t('Remove'),
-    saveAndTest: t('Save and Send Test'),
-    chooseServerFirst: t('Choose a server first.'),
-    cancel: t('Cancel'),
-    sendingTo: t('Notifications go to the topic {0} on {1}.', '{0}', '{1}'),
-    change: t('Change'),
-    sendTest: t('Send Test Notification'),
     sending: t('Sending…'),
-    sentAt: t(
-      'Sent at {0}. If it is not on your phone, subscribe to this topic in the ntfy app.',
-      '{0}',
-    ),
     whenToNotify: t('When you get a notification'),
     rules: {
       lead: t(
@@ -233,6 +329,7 @@ export function panelStrings(t: Translate): PanelStrings {
     clearRecent: t('Clear'),
     sent: t('Sent'),
     notSent: t('Not sent'),
+    partlySent: t('Partly sent'),
     allSettings: t('All Settings'),
     privacy: t(
       'Nightping sends only to the server you chose. No telemetry, no other network traffic.',
@@ -248,11 +345,16 @@ export function testMessage(t: Translate): Message {
   };
 }
 
-/** Why nothing was sent while the server or topic is missing or wrong. */
-export function notReadyText(t: Translate, state: 'incomplete' | 'invalid'): string {
-  return state === 'incomplete'
-    ? t('Nightping is not set up yet.')
-    : t('The ntfy server or topic in the settings is not valid.');
+/** Why nothing was sent while there is no destination to send to. */
+export function notReadyText(t: Translate, state: 'incomplete' | 'off' | 'invalid'): string {
+  switch (state) {
+    case 'incomplete':
+      return t('Nightping is not set up yet.');
+    case 'off':
+      return t('Every destination is turned off.');
+    case 'invalid':
+      return t('The ntfy server or topic in the settings is not valid.');
+  }
 }
 
 /** Why a notification did not go out, in a sentence that names the next step. */

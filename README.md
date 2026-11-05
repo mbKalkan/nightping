@@ -25,20 +25,26 @@ A notification reads at a glance: the title says what finished, the message how 
 
 ## Set up
 
-Nightping ships with **no server, no topic and no account**, and sends nothing until you enter your own. Pick one of the two ways below; both take a few minutes.
+Nightping ships with **no server, no topic and no account**, and sends nothing until you add a destination of your own: a topic on an ntfy server. Click **Nightping** in the status bar to open the panel. **Where notifications go** asks how notifications should reach your phone and walks you through the way you pick:
+
+- **ntfy.sh**: a free public server, ready in two minutes.
+- **Your own ntfy server**: one you already run, at home or at work.
+- **Your own server over Tailscale**: private, only your own devices reach it.
+
+Each way ends with **Save and Send Test**: the test arrives on your phone within seconds, and the card then lists the destination with **Send Test**, **Edit** and **Remove**.
 
 ### With ntfy.sh (free, nothing to install)
 
 1. Install the ntfy app on your phone: [Google Play](https://play.google.com/store/apps/details?id=io.heckel.ntfy), [F-Droid](https://f-droid.org/en/packages/io.heckel.ntfy/) or the [App Store](https://apps.apple.com/us/app/ntfy/id1625396347).
-2. In VS Code, click **Nightping** in the status bar to open the panel. Under **Your phone**, click **Use ntfy.sh** and keep the random topic Nightping suggests.
+2. In the panel, choose **ntfy.sh** and keep the random topic Nightping suggests.
 3. In the ntfy app, tap **+** and enter the same topic (**Copy** puts it on the clipboard).
-4. Click **Save and Send Test**. The test arrives on your phone within seconds, and the card then says in one line where notifications go.
+4. Click **Save and Send Test**.
 
 On ntfy.sh every topic is public: anyone who knows its name can read it and send to it, so the topic works like a password. Keep the random name, or choose one as hard to guess. Free use of ntfy.sh has [limits](https://docs.ntfy.sh/publish/#limitations), such as 250 messages a day.
 
 ### With your own ntfy server
 
-1. [Install ntfy](https://docs.ntfy.sh/install/) where both your computer and your phone can reach it: at home, on a server you rent, or in a private network such as Tailscale. Nightping sends from the computer you work on, so an address that only works in your own network is fine.
+1. [Install ntfy](https://docs.ntfy.sh/install/) where both your computer and your phone can reach it: at home or on a server you rent. Nightping sends from the computer you work on, so an address that only works in your own network is fine.
 2. To keep the topic private, turn on [access control](https://docs.ntfy.sh/config/#access-control) (`auth-file` and `auth-default-access: "deny-all"` in `server.yml`). Then create a user that may only publish to your topic, and a token for it:
 
    ```sh
@@ -48,28 +54,45 @@ On ntfy.sh every topic is public: anyone who knows its name can read it and send
    ```
 
    The token starts with `tk_`. It can do whatever its user can, which is why that user gets this one topic and nothing more.
-3. In the Nightping panel, under **Your phone**, enter your server (for example `https://ntfy.example.com`) and the topic, click **My server needs an access token** and enter the token.
-4. In the ntfy app, add a subscription to the topic with **Use another server** and your server's address, or make it the **Default server** in the app's settings. For a protected topic, the app asks you to log in with a user that may read it.
+3. In the panel, choose **Your own ntfy server**, enter its address (for example `https://ntfy.example.com`), click **My server needs an access token** and enter the token.
+4. In the ntfy app, tap **+**, turn on **Use another server**, enter your server's address and the topic, or make it the **Default server** in the app's settings. For a protected topic, the app asks you to log in with a user that may read it.
 5. Click **Save and Send Test**.
 
-On an iPhone, notifications from your own server arrive at once only when the server forwards them through ntfy.sh: set `upstream-base-url: "https://ntfy.sh"` in `server.yml` ([iOS instant notifications](https://docs.ntfy.sh/config/#ios-instant-notifications)). ntfy.sh then sees only a message ID and a hash of the topic, never the message itself.
+On an iPhone, notifications from your own server arrive at once only when the server forwards them through ntfy.sh: set `base-url` to your server's address and `upstream-base-url: "https://ntfy.sh"` in `server.yml` ([iOS instant notifications](https://docs.ntfy.sh/config/#ios-instant-notifications)). ntfy.sh then sees only a message ID and a hash of the topic, never the message itself.
+
+### With your own server over Tailscale
+
+[Tailscale](https://tailscale.com) joins your devices in a private network, so an ntfy server on one of your computers is reachable from your phone and nowhere else. Choose **Your own server over Tailscale** in the panel; it walks you through five steps:
+
+1. **Put Tailscale on your devices**: this computer, the computer that will run the server (this one works too) and your phone, signed in to the same account. The panel checks the `tailscale` command on this computer and says whether it is installed, signed in and connected.
+2. **Choose the server** from your Tailscale computers. Nightping reads them from `tailscale status` on this computer, only when you open this guide; the list stays in the panel. Picking one fills in its address, `https://<computer>.<tailnet>.ts.net`. This needs MagicDNS, which Tailscale turns on by default.
+3. **Run ntfy on it**: the panel shows two commands with the address filled in, each with **Copy**. The first starts ntfy with Docker, listening only on the server itself; the second, `tailscale serve --bg 2586`, lets only your Tailscale devices reach it over HTTPS. Without Docker, [install ntfy another way](https://docs.ntfy.sh/install/), have it listen on port 2586, and run the second command. The first time, `tailscale serve` shows a link to turn on HTTPS certificates for your tailnet.
+4. **Subscribe on your phone**: install the ntfy app, turn Tailscale on, tap **+**, turn on **Use another server**, enter the server's address and the topic.
+5. **Name it and send a test.**
+
+The command also sets `upstream-base-url`, so an iPhone gets notifications at once; the iPhone still fetches the message from your server, so Tailscale has to be on there.
+
+### More than one destination
+
+**Add Another Destination** adds one more the same way: a second phone, or ntfy.sh next to your own server. Every destination that is on gets every notification; with more than one, each has a checkbox to turn it off for a while without removing it. **Send Test** next to a destination tests that one, and **Nightping: Send Test Notification** tests every one that is on. When some destinations get a notification and others do not, **Recent notifications** says **Partly sent** and names the ones that failed.
 
 ### If it does not arrive
 
-The **Your phone** card says why: the server needs an access token or refused it, redirects to another address, cannot be reached, or does not answer within 10 seconds. **Recent notifications** keeps what Nightping sent, and the reason for anything that did not go out. The list stays on this computer.
+The card says why: the server needs an access token or refused it, redirects to another address, cannot be reached, or does not answer within 10 seconds. **Recent notifications** keeps what Nightping sent, and the reason for anything that did not go out. The list stays on this computer.
 
 Behind a proxy, Nightping goes through the proxy VS Code uses: the `http.proxy` setting, or the system's proxy when that setting is empty. This needs VS Code 1.96 or later.
 
 ### Your server, your settings
 
-- Requests go only to the server you entered. There is no telemetry and no other network traffic.
+- Requests go only to the servers you entered. There is no telemetry and no other network traffic.
 - By default a notification contains only the kind of event, the result and the duration. The workspace name, task names, command lines and file names are added only if you choose them under **Content**.
-- The server and topic are user settings, so Settings Sync takes them to your other computers. The token stays in VS Code's secret storage on each computer, never in the settings; enter it again on another computer in the panel or with **Nightping: Set Access Token…**.
-- Prefer the keyboard? **Nightping: Set Up…** asks for the server, topic and token in the Command Palette, and **Send Test Notification**, **Set Access Token…** and **Clear Access Token** are there too.
+- The destinations are a user setting, `nightping.destinations`, so Settings Sync takes them to your other computers. Access tokens stay in VS Code's secret storage on each computer, one per server, never in the settings; enter them again on another computer in the panel (**Edit**) or with **Nightping: Set Access Token…**.
+- Prefer the keyboard? **Nightping: Add a Destination…** asks for the server, topic and token in the Command Palette (for Tailscale it opens the panel's guide), and **Send Test Notification**, **Remove a Destination…**, **Set Access Token…** and **Clear Access Token** are there too.
+- Upgrading from 0.1.0: the server and topic you saved become the first destination, with their token, the first time the new version starts.
 
 ## Claude Code
 
-**Connect it with one click.** In the Nightping panel, under **AI agents**, click **Connect** next to Claude Code (or run **Nightping: Connect Claude Code…**). After you confirm, Nightping adds three HTTP hooks to Claude Code's user settings, `~/.claude/settings.json` (or the folder an absolute `CLAUDE_CONFIG_DIR` names): when you send a prompt, when Claude finishes, and when it needs you. It saves a copy of the file as `settings.json.nightping.bak` first and leaves your other settings and hooks as they are. **Disconnect** removes only Nightping's hooks. Claude Code picks the change up without a restart. When you set up Nightping with **Nightping: Set Up…** and Claude Code is on the computer, the test notification offers to connect it.
+**Connect it with one click.** In the Nightping panel, under **AI agents**, click **Connect** next to Claude Code (or run **Nightping: Connect Claude Code…**). After you confirm, Nightping adds three HTTP hooks to Claude Code's user settings, `~/.claude/settings.json` (or the folder an absolute `CLAUDE_CONFIG_DIR` names): when you send a prompt, when Claude finishes, and when it needs you. It saves a copy of the file as `settings.json.nightping.bak` first and leaves your other settings and hooks as they are. **Disconnect** removes only Nightping's hooks. Claude Code picks the change up without a restart. When you add your first destination with **Nightping: Add a Destination…** and Claude Code is on the computer, the test notification offers to connect it.
 
 **Or add the hooks yourself.** **Copy Settings** under **How it works** (or **Nightping: Copy Claude Code Hook Settings**) puts them on the clipboard; add them under `"hooks"` in the settings file, or paste them to Claude Code and ask it to add them to your user settings:
 

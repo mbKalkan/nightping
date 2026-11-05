@@ -3,7 +3,7 @@
   "description": "Görevler, terminal komutları, notebook hücreleri, debug oturumları, Claude Code, Codex ya da GitHub Copilot bitince veya sizi beklerken kendi ntfy sunucunuz ya da ntfy.sh topic'iniz üzerinden telefona bildirim. Kendi mesajlarınızı da gönderin. Varsayılan sunucu yok, telemetri yok.",
   "category": "Nightping",
   "command.open": "Aç",
-  "command.setUp": "Kurulum…",
+  "command.setUp": "Ping Noktası Ekle…",
   "command.sendTest": "Test Bildirimi Gönder",
   "command.send": "Mesaj Gönder…",
   "command.pause": "Bildirimleri Duraklat…",
@@ -35,5 +35,12 @@
   "config.content.result": "İşin türü, sonucu ve süresi, örneğin `Görev` / `Başarısız (çıkış 1) · 4 dk 12 sn`.",
   "config.content.folder": "Çalışma alanının adı da.",
   "config.content.details": "Görev adı, komut satırı, notebook dosyasının adı ya da debug yapılandırmasının adı da.",
-  "config.port": "Nightping'in Claude Code olaylarını aldığı `127.0.0.1` portu. Değiştirdikten sonra hook'ların yeni portu kullanması için Claude Code'u yeniden bağlayın."
+  "config.port": "Nightping'in Claude Code olaylarını aldığı `127.0.0.1` portu. Değiştirdikten sonra hook'ların yeni portu kullanması için Claude Code'u yeniden bağlayın.",
+  "command.removeDestination": "Ping Noktasını Kaldır…",
+  "config.destinations": "Bildirimlerin gittiği yerler: her girdi bir ntfy sunucusundaki bir topic’tir ve açık olan her girdi her bildirimi alır. Nightping panelinden (**Nightping: Aç**) ya da **Nightping: Ping Noktası Ekle…** komutuyla eklenir. Nightping’in varsayılan bir sunucusu yoktur; bir ping noktası olmadan hiçbir şey göndermez. Erişim token’ları burada değil, gizli depoda, sunucu başına bir tane tutulur.",
+  "config.destinations.name": "Nightping panelinde görünen adı. Yazılmazsa sunucunun adresi görünür.",
+  "config.destinations.server": "ntfy sunucusunun adresi, örneğin `https://ntfy.sh` ya da `https://ntfy.example.com`.",
+  "config.destinations.topic": "Bildirimlerin yayımlanacağı ntfy topic’i: harf, rakam, `-` ve `_`, en çok 64 karakter. Herkese açık bir sunucuda bu adı bilen herkes bildirimleri okuyabilir.",
+  "config.destinations.enabled": "Ping noktasını listede tutup ona bir şey göndermemek için `false` yapın.",
+  "config.server.deprecated": "Yerini `#nightping.destinations#` aldı: Nightping açılırken bu değeri oraya taşır."
 }

@@ -10,38 +10,9 @@ export interface PanelStrings {
   /** `{0}` is the time. */
   pausedUntil: string;
   pausedUntilResumed: string;
-  /** The "Your phone" card. */
-  destination: string;
-  /** The setup steps, in order; each has a title and a line that says what to do. */
-  steps: Record<'app' | 'server' | 'topic' | 'test', { title: string; help: string }>;
-  server: string;
-  useNtfySh: string;
-  serverInvalid: string;
-  topic: string;
-  /** How to subscribe on one's own server; `{0}` is its address. */
-  topicOwnServer: string;
-  topicHelp: string;
-  topicInvalid: string;
-  copyTopic: string;
-  copied: string;
-  randomTopic: string;
-  addToken: string;
-  token: string;
-  tokenHelp: string;
-  tokenSaved: string;
-  tokenInvalid: string;
-  removeToken: string;
-  saveAndTest: string;
-  /** Beside Save and Send Test while there is no server yet. */
-  chooseServerFirst: string;
-  cancel: string;
-  /** `{0}` is the topic, `{1}` the server. */
-  sendingTo: string;
-  change: string;
-  sendTest: string;
+  /** The "Where notifications go" card. */
+  destinations: DestinationStrings;
   sending: string;
-  /** `{0}` is the time. */
-  sentAt: string;
   /** The "When you get a notification" card. */
   whenToNotify: string;
   /**
@@ -91,8 +62,100 @@ export interface PanelStrings {
   clearRecent: string;
   sent: string;
   notSent: string;
+  /** It reached some destinations, not all. */
+  partlySent: string;
   allSettings: string;
   privacy: string;
+}
+
+/** A step of the guide: its title and the line that says what to do. */
+export interface StepText {
+  title: string;
+  help: string;
+}
+
+/** The texts of the "Where notifications go" card. */
+export interface DestinationStrings {
+  title: string;
+  /** `{0}` is the topic, `{1}` the server. */
+  topicOn: string;
+  /** Under a destination without a name, whose title is the server already; `{0}` is the topic. */
+  topicOnly: string;
+  /** Under a destination that is turned off. */
+  offNote: string;
+  /** What a destination's checkbox does. */
+  sendHere: string;
+  problem: Record<'server' | 'topic', string>;
+  sendTest: string;
+  edit: string;
+  remove: string;
+  add: string;
+  /** Over the three ways. */
+  chooseLead: string;
+  ways: Record<SetupWay, { title: string; help: string }>;
+  /** Beside the easiest way. */
+  easiest: string;
+  otherWays: string;
+  steps: {
+    tailscale: StepText;
+    app: StepText;
+    server: StepText;
+    pickServer: StepText;
+    run: StepText;
+    /** Subscribing on ntfy.sh. */
+    topic: StepText;
+    /** On one's own server; `{0}` is its address. */
+    topicOwn: StepText;
+    /** On one's own server over Tailscale; `{0}` is its address. */
+    topicTailscale: StepText;
+    save: StepText;
+  };
+  server: string;
+  serverInvalid: string;
+  topic: string;
+  topicHelp: string;
+  topicInvalid: string;
+  duplicate: string;
+  copy: string;
+  copied: string;
+  randomTopic: string;
+  addToken: string;
+  token: string;
+  tokenHelp: string;
+  tokenSaved: string;
+  tokenInvalid: string;
+  removeToken: string;
+  name: string;
+  /** `{0}` is the name used when the field stays empty. */
+  nameHelp: string;
+  nameInvalid: string;
+  saveAndTest: string;
+  cancel: string;
+  /** `{0}` is the time, `{1}` the destination. */
+  sentTo: string;
+  /** `{0}` is the time. */
+  sentAt: string;
+  tailscale: {
+    download: string;
+    check: string;
+    checking: string;
+    /** In `ready`, `{0}` is this computer's name. */
+    state: Record<TailscaleView['kind'], string>;
+    thisComputer: string;
+    offline: string;
+    /** `{0}` is the device. */
+    offlineChosen: string;
+    noDevices: string;
+    noMagicDns: string;
+    openDns: string;
+    typeAddress: string;
+  };
+  run: {
+    /** The address in the commands until a server is chosen. */
+    placeholder: string;
+    otherWays: string;
+    note: string;
+  };
 }
 
 /** The texts of an agent's row. */
@@ -113,7 +176,7 @@ export interface AgentStrings {
   receivingHelp: string;
 }
 
-export type PanelStatus = 'ready' | 'incomplete' | 'invalid';
+export type PanelStatus = 'ready' | 'incomplete' | 'off' | 'invalid';
 
 /** The AI agents whose hooks post to Nightping. */
 export type AgentKind = 'claude' | 'codex' | 'copilot';
@@ -128,6 +191,43 @@ export const APP_STORES = {
 } as const;
 
 export type AppStore = keyof typeof APP_STORES;
+
+/** The three ways to get notifications to a phone that the panel walks through. */
+export type SetupWay = 'ntfy-sh' | 'own-server' | 'tailscale';
+
+export const SETUP_WAYS: readonly SetupWay[] = ['ntfy-sh', 'own-server', 'tailscale'];
+
+/** Pages the guide links to; the host holds the addresses. */
+export type GuideLink = 'tailscale-download' | 'tailscale-dns' | 'ntfy-install';
+
+/** One place notifications go, as the panel shows it. */
+export interface DestinationView {
+  /** Server and topic: tells destinations apart. */
+  key: string;
+  name: string;
+  server: string;
+  topic: string;
+  enabled: boolean;
+  /** Whether a token is saved for its server. The token itself never reaches the panel. */
+  hasToken: boolean;
+  problem?: 'server' | 'topic';
+}
+
+/** A computer on the user's Tailscale network that could run the ntfy server. */
+export interface TailscaleDevice {
+  name: string;
+  os: string;
+  online: boolean;
+  /** This computer. */
+  self: boolean;
+  /** `https://` and its MagicDNS name; empty without MagicDNS. */
+  address: string;
+}
+
+/** What the tailscale command on this computer says. */
+export type TailscaleView =
+  | { kind: 'missing' | 'off' | 'signed-out' }
+  | { kind: 'ready'; name: string; magicDns: boolean; devices: TailscaleDevice[] };
 
 /** Longer messages are cut: a phone shows a few lines, and ntfy turns 4 KB into a file. */
 export const MESSAGE_LIMIT = 1000;
@@ -193,14 +293,13 @@ export interface SentEntry {
   message: string;
   /** Why it was not sent, in the user's language; absent when it was. */
   error?: string;
+  /** It reached some destinations; `error` names the others. */
+  partial?: boolean;
 }
 
 export interface PanelState {
-  /** The settings as they are, so the form can show and fix an invalid value. */
-  server: string;
-  topic: string;
-  /** Whether a token is saved. The token itself never reaches the panel. */
-  hasToken: boolean;
+  /** As the settings hold them, so the panel can show and fix an invalid value. */
+  destinations: DestinationView[];
   status: PanelStatus;
   /** Present while notifications are paused; without `until`, until the user resumes. */
   pause?: { until?: number };
@@ -221,18 +320,42 @@ export type HostToWebviewMessage =
   | { type: 'state'; state: PanelState }
   | { type: 'busy'; busy: boolean }
   | { type: 'saved' }
-  | { type: 'result'; time: number; error?: string }
+  /** Why the destination was not saved. */
+  | { type: 'notSaved'; error: string }
+  /** How a test went; `to` names the one destination it went to. */
+  | { type: 'result'; time: number; error?: string; to?: string }
+  | { type: 'tailscale'; status: TailscaleView }
+  /** The Command Palette asked for this way's guide. */
+  | { type: 'guide'; way: SetupWay }
   /** How the message typed in the panel went. */
   | { type: 'messageResult'; time: number; error?: string };
 
 export type WebviewToHostMessage =
   | { type: 'ready' }
-  /** An empty token keeps the saved one. With `test`, a test notification follows the save. */
-  | { type: 'save'; server: string; topic: string; token: string; test: boolean }
-  | { type: 'sendTest' }
+  /**
+   * Adds a destination, or with `previous` changes that one. An empty token keeps the saved one.
+   * With `test`, a test notification to it follows the save.
+   */
+  | {
+      type: 'save';
+      previous?: string;
+      name: string;
+      server: string;
+      topic: string;
+      token: string;
+      test: boolean;
+    }
+  /** To one destination, or without `key` to every one that is on. */
+  | { type: 'sendTest'; key?: string }
+  | { type: 'removeDestination'; key: string }
+  | { type: 'setEnabled'; key: string; enabled: boolean }
+  /** Asks the tailscale command on this computer for its devices. */
+  | { type: 'findTailscale' }
+  | { type: 'openGuide'; link: GuideLink }
   /** A message the user typed; it goes out even while notifications are paused. */
   | { type: 'send'; message: string }
-  | { type: 'removeToken' }
+  /** The token of this destination's server. */
+  | { type: 'removeToken'; key: string }
   | { type: 'clearHistory' }
   | { type: 'openSettings' }
   | { type: 'setPref'; change: PrefChange }
@@ -241,8 +364,8 @@ export type WebviewToHostMessage =
   | { type: 'resume' }
   | { type: 'openShellIntegrationHelp' }
   | { type: 'openAppStore'; store: AppStore }
-  /** The topic as typed: it may not be saved yet. */
-  | { type: 'copyTopic'; topic: string }
+  /** A topic as typed, or a command of the guide. */
+  | { type: 'copy'; text: string }
   | { type: 'connectAgent'; agent: AgentKind }
   | { type: 'disconnectAgent'; agent: AgentKind }
   | { type: 'copyAgentSettings'; agent: AgentKind };
