@@ -2,6 +2,7 @@
 // publisher, so tests need no VS Code and no server.
 import { displayName, type DestinationEntry } from './config';
 import type { Message, PublishOptions, PublishResult } from './ntfy';
+import { routeFor, type Routes } from './tailscale';
 import { failureText, type Translate } from './texts';
 
 export interface Failure {
@@ -23,22 +24,28 @@ type Publish = (
   options: PublishOptions,
 ) => Promise<PublishResult>;
 
-/** Every destination at the same time, so a slow server does not hold up the others. */
+/**
+ * Every destination at the same time, so a slow server does not hold up the others. A server in
+ * `routes` is this computer's own: it goes to the address there, with the server's token.
+ */
 export async function deliver(
   t: Translate,
   targets: DestinationEntry[],
   message: Message,
   tokenFor: (server: string) => Promise<string | undefined>,
   publish: Publish,
+  routes: Routes = new Map(),
 ): Promise<Delivery> {
   const results = await Promise.all(
     targets.map(async (destination) => {
       const token = await tokenFor(destination.server);
-      return { destination, token, result: await publish(destination, message, { token }) };
+      const local = routeFor(routes, destination.server);
+      const target = local === undefined ? destination : { ...destination, server: local };
+      return { destination, token, local, result: await publish(target, message, { token }) };
     }),
   );
   const delivery: Delivery = { sent: [], failures: [] };
-  for (const { destination, token, result } of results) {
+  for (const { destination, token, local, result } of results) {
     if (result.ok) {
       delivery.sent.push(destination);
       continue;
@@ -48,7 +55,7 @@ export async function deliver(
       destination,
       result,
       hasToken,
-      text: failureText(t, result, destination.server, hasToken),
+      text: failureText(t, result, destination.server, hasToken, local),
     });
   }
   return delivery;

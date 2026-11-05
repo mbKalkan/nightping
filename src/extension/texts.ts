@@ -1,6 +1,6 @@
 // User-facing text that the panel and the commands share. Every message goes through `t`:
 // VS Code's `l10n.t` in the extension, a plain formatter in tests, so both show the same words.
-import { hostOf, NAME_LIMIT } from '../shared/destination';
+import { isOnTailscale, NAME_LIMIT } from '../shared/destination';
 import { NTFY_PORT } from '../shared/guide';
 import type { PanelStrings } from '../shared/protocol';
 import type { Message, PublishResult } from './ntfy';
@@ -481,13 +481,27 @@ export function notReadyText(t: Translate, state: 'incomplete' | 'off' | 'invali
   }
 }
 
-/** Why a notification did not go out, in a sentence that names the next step. */
+/**
+ * Why a notification did not go out, in a sentence that names the next step. `local` is where it
+ * went on the server computer itself: the address its `tailscale serve` passes the server on to.
+ */
 export function failureText(
   t: Translate,
   result: Exclude<PublishResult, { ok: true }>,
   server: string,
   hasToken: boolean,
+  local?: string,
 ): string {
+  if (local !== undefined && result.reason === 'unreachable') {
+    return t('Could not reach ntfy on this computer at {0} ({1}).', local, result.detail);
+  }
+  if (local !== undefined && result.reason === 'timeout') {
+    return t(
+      'ntfy on this computer did not answer at {0} within {1} seconds.',
+      local,
+      result.seconds,
+    );
+  }
   switch (result.reason) {
     case 'unauthorized':
       return hasToken
@@ -512,6 +526,6 @@ export function failureText(
 
 /** A MagicDNS address is reached only over Tailscale, so that is the first thing to check. */
 function withTailscale(t: Translate, server: string, text: string): string {
-  if (!hostOf(server).toLowerCase().endsWith('.ts.net')) return text;
+  if (!isOnTailscale(server)) return text;
   return `${text} ${t('It is on Tailscale: check that Tailscale is connected on this computer and that the server computer is on.')}`;
 }

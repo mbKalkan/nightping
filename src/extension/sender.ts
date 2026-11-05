@@ -6,6 +6,7 @@ import type { NotifyPrefs } from '../shared/protocol';
 import type { History } from './history';
 import { publish, type Message } from './ntfy';
 import { readPrefs } from './prefs';
+import { ServeRoutes } from './tailscale';
 
 export type SendOutcome =
   | { kind: 'not-ready'; state: Exclude<DestinationsKind, 'ready'> }
@@ -29,6 +30,8 @@ export class Sender {
   constructor(
     private readonly secrets: vscode.SecretStorage,
     private readonly history: History,
+    /** Where this computer's `tailscale serve` passes its addresses on to. */
+    readonly routes = new ServeRoutes(),
   ) {}
 
   /** To every destination that is on; with `only`, to that one, on or off, as a test does. */
@@ -43,13 +46,20 @@ export class Sender {
     } else if (state.kind !== 'ready') {
       return { kind: 'not-ready', state: state.kind };
     }
+    const routes = await this.routes.get(
+      targets.map((target) => target.server),
+      only !== undefined,
+    );
     const delivery = await deliver(
       vscode.l10n.t,
       targets,
       message,
       (server) => Promise.resolve(this.secrets.get(tokenKey(server))),
       publish,
+      routes,
     );
+    // The next send asks again: `tailscale serve` may have changed.
+    if (delivery.failures.length > 0) this.routes.forget();
     const entry = { time: Date.now(), title: message.title, message: message.message };
     const text = deliveryError(delivery);
     if (text === undefined) {

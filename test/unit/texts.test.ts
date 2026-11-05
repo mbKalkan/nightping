@@ -78,6 +78,33 @@ describe('failureText', () => {
       failureText(english, { ok: false, reason: 'unauthorized', status: 403 }, tailnet, false),
     ).not.toContain('Tailscale');
   });
+
+  it('names ntfy on this computer when the server is this computer', () => {
+    const tailnet = 'https://server.example-tailnet.ts.net';
+    const local = 'http://127.0.0.1:2586';
+    expect(
+      failureText(
+        english,
+        { ok: false, reason: 'unreachable', detail: 'ECONNREFUSED' },
+        tailnet,
+        false,
+        local,
+      ),
+    ).toBe('Could not reach ntfy on this computer at http://127.0.0.1:2586 (ECONNREFUSED).');
+    expect(
+      failureText(english, { ok: false, reason: 'timeout', seconds: 10 }, tailnet, false, local),
+    ).toBe('ntfy on this computer did not answer at http://127.0.0.1:2586 within 10 seconds.');
+    // The token is the server's, so its problem names the server.
+    expect(
+      failureText(
+        english,
+        { ok: false, reason: 'unauthorized', status: 403 },
+        tailnet,
+        false,
+        local,
+      ),
+    ).toBe(`${tailnet} needs an access token for this topic (HTTP 403).`);
+  });
 });
 
 describe('panelStrings', () => {
