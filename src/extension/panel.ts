@@ -65,8 +65,8 @@ const GUIDE_PAGES: Record<GuideLink, string> = {
   'tailscale-dns': 'https://login.tailscale.com/admin/dns',
   'ntfy-install': 'https://docs.ntfy.sh/install/',
 };
-/** Longer text is not a topic or a command of the guide. */
-const COPY_LIMIT = 2000;
+/** Longer text is not a topic, a command or a prompt of the guide. */
+const COPY_LIMIT = 8000;
 
 export interface PanelContext {
   extensionUri: vscode.Uri;

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { fillPrompt, serverCommands } from '../../src/shared/guide';
 import type { AgentKind, SetupWay } from '../../src/shared/protocol';
 import { lowestTextContrast } from './contrast';
 import {
@@ -190,7 +191,7 @@ for (const theme of ['dark', 'light', 'hcDark', 'hcLight'] as ThemeName[]) {
 
     test('walks through one’s own server over Tailscale', async ({ page }) => {
       // The guide is long; the card's picture holds all of it.
-      await page.setViewportSize({ width: 1100, height: 2000 });
+      await page.setViewportSize({ width: 1100, height: 2600 });
       const panel = await openPanel(page, theme);
       await panel.init(notSetUp);
       await way(page, 'tailscale').click();
@@ -407,6 +408,60 @@ test('says what to do when Tailscale is missing, off or signed out, or has no Ma
   ]);
 });
 
+test('hands the steps an AI agent can do to it as ready prompts', async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 2600 });
+  const panel = await openPanel(page, 'dark');
+  await panel.init(notSetUp);
+  const delegates = destinationCard(page).locator('.ng-delegate:visible');
+  const delegate = (index: number) =>
+    delegates.nth(index).getByRole('button', { name: d.delegate.button });
+  const copied = async () =>
+    (await panel.sent()).flatMap((message) => (message.type === 'copy' ? [message.text] : []));
+
+  await way(page, 'tailscale').click();
+  await panel.post({ type: 'tailscale', status: tailscaleReady });
+  // Putting Tailscale on a computer, and running ntfy on the server.
+  await expect(delegates).toHaveCount(2);
+  await expect(delegates.nth(0)).toContainText(d.delegate.help.tailscale);
+  await expect(delegates.nth(1)).toContainText(d.delegate.help.ntfy);
+  // The server's prompt waits for its address.
+  await expect(delegate(1)).toBeDisabled();
+  await page.getByRole('radiogroup').getByLabel('box').check();
+  await delegate(1).click();
+  await expect(delegates.nth(1).getByText(d.delegate.copied)).toBeVisible();
+  // What the agent is asked can be read before it is pasted.
+  await delegates.nth(1).getByText(d.delegate.show).click();
+  await expect(delegates.nth(1).locator('pre')).toContainText('tailscale serve --bg 2586');
+  await delegate(0).click();
+  const box = 'https://box.tail1234.ts.net';
+  expect(await copied()).toEqual([
+    fillPrompt(d.prompts.ntfy, [box, ...serverCommands(box)]),
+    fillPrompt(d.prompts.tailscale, []),
+  ]);
+  await destinationCard(page).screenshot({ path: `${SCREENS}/delegate-dark.png` });
+
+  // On one's own server, where a token is asked for.
+  await page.getByRole('button', { name: d.otherWays }).click();
+  await way(page, 'own-server').click();
+  await expect(delegates).toHaveCount(0);
+  await expect(delegates.nth(0)).toBeHidden();
+  await page.getByRole('button', { name: d.addToken }).click();
+  await expect(delegates).toHaveCount(1);
+  await expect(delegates.nth(0)).toContainText(d.delegate.help.token);
+  await expect(delegate(0)).toBeDisabled();
+  await server(page).fill('https://ntfy.example.com');
+  await delegate(0).click();
+  const topicName = await topic(page).inputValue();
+  expect((await copied())[2]).toBe(
+    fillPrompt(d.prompts.token, ['https://ntfy.example.com', topicName]),
+  );
+  // A new form starts without the line of the last copy.
+  await page.getByRole('button', { name: d.otherWays }).click();
+  await way(page, 'ntfy-sh').click();
+  // ntfy.sh needs nothing done on a computer.
+  await expect(delegates).toHaveCount(0);
+});
+
 test('opens the guide the Command Palette asks for', async ({ page }) => {
   const panel = await openPanel(page, 'dark');
   await panel.init(ready);
@@ -461,8 +516,9 @@ test('edits a destination, or leaves it as it was', async ({ page }) => {
   await expect(token(page)).toHaveValue('');
   await expect(token(page)).toHaveAttribute('placeholder', d.tokenSaved);
   await expect(page.getByRole('button', { name: d.removeToken })).toBeVisible();
-  // Nothing changed yet, so there is nothing to save.
+  // Nothing changed yet, so there is nothing to save; a saved token needs no prompt for one.
   await expect(saveButton(page)).toBeDisabled();
+  await expect(destinationCard(page).locator('.ng-delegate:visible')).toHaveCount(0);
   await destinationCard(page).screenshot({ path: `${SCREENS}/edit-dark.png` });
 
   await topic(page).fill('half-typed');

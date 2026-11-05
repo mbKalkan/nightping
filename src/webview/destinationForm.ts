@@ -11,7 +11,7 @@ import {
   normalizeServer,
   suggestTopic,
 } from '../shared/destination';
-import { serverCommands } from '../shared/guide';
+import { fillPrompt, serverCommands } from '../shared/guide';
 import {
   APP_STORES,
   type AppStore,
@@ -22,6 +22,7 @@ import {
   type TailscaleView,
 } from '../shared/protocol';
 import { button, element, fill } from './dom';
+import { Delegate } from './delegate';
 import { Field } from './field';
 import { vscode } from './vscodeApi';
 
@@ -50,6 +51,10 @@ export class DestinationForm {
   private readonly devices = element('div', 'ng-stack ng-devices');
   private readonly noMagicDns = element('p', 'ng-warning');
   private readonly offline = element('p', 'ng-warning');
+  /** Steps an AI agent can do, each with its ready prompt. */
+  private readonly tailscaleAgent: Delegate;
+  private readonly ntfyAgent: Delegate;
+  private readonly tokenAgent: Delegate;
   private readonly commands: Array<{ code: HTMLElement; copy: HTMLButtonElement }> = [];
   private mode: FormMode = { way: 'ntfy-sh' };
   private destinations: DestinationView[] = [];
@@ -72,7 +77,9 @@ export class DestinationForm {
     this.tailscaleStep = step(s.steps.tailscale);
     const tailscaleRow = element('div', 'ng-row');
     tailscaleRow.append(download, check);
-    this.tailscaleStep.body.append(tailscaleRow, this.tailscaleState);
+    this.tailscaleAgent = new Delegate(s.delegate, s.delegate.help.tailscale, 'ng-agent-tailscale');
+    this.tailscaleAgent.set(fillPrompt(s.prompts.tailscale, []));
+    this.tailscaleStep.body.append(tailscaleRow, this.tailscaleState, this.tailscaleAgent.element);
 
     this.appStep = step(s.steps.app);
     this.appStep.body.append(stores());
@@ -88,6 +95,7 @@ export class DestinationForm {
       stacked: true,
     });
     this.token.input.type = 'password';
+    this.tokenAgent = new Delegate(s.delegate, s.delegate.help.token, 'ng-agent-token');
     const openDns = button(s.tailscale.openDns, 'link');
     this.noMagicDns.append(s.tailscale.noMagicDns, ' ', openDns);
     this.devices.setAttribute('role', 'radiogroup');
@@ -100,6 +108,7 @@ export class DestinationForm {
       this.server.element,
       this.addToken,
       this.token.element,
+      this.tokenAgent.element,
     );
 
     this.runStep = step(s.steps.run);
@@ -113,7 +122,12 @@ export class DestinationForm {
       copy.addEventListener('click', () => this.copied(copy, code.textContent ?? ''));
     }
     const otherInstall = button(s.run.otherWays, 'link');
-    this.runStep.body.append(element('p', 'ng-help', s.run.note), otherInstall);
+    this.ntfyAgent = new Delegate(s.delegate, s.delegate.help.ntfy, 'ng-agent-ntfy');
+    this.runStep.body.append(
+      element('p', 'ng-help', s.run.note),
+      otherInstall,
+      this.ntfyAgent.element,
+    );
 
     this.copyTopic = button(s.copy, 'secondary');
     const random = button(s.randomTopic, 'secondary');
@@ -200,6 +214,7 @@ export class DestinationForm {
     this.token.input.value = '';
     for (const field of [this.server, this.topic, this.token, this.name]) field.touched = false;
     this.tokenOpen = false;
+    for (const agent of [this.tailscaleAgent, this.ntfyAgent, this.tokenAgent]) agent.reset();
     this.devices.replaceChildren();
     this.offline.hidden = true;
     this.noMagicDns.hidden = true;
@@ -312,6 +327,8 @@ export class DestinationForm {
     this.addToken.hidden = token;
     this.token.input.placeholder = hasToken ? s.tokenSaved : '';
     this.removeToken.hidden = !hasToken;
+    // Offered where a token is asked for and none is saved yet.
+    this.tokenAgent.element.hidden = !token || hasToken;
     this.cancel.hidden = !this.canCancel;
     this.check();
   }
@@ -376,6 +393,13 @@ export class DestinationForm {
       this.busy || !serverOk || !topicOk || !tokenOk || !nameOk || duplicate || !changed;
     this.submit.textContent = this.busy ? this.sending : s.saveAndTest;
     this.copyTopic.disabled = !topicOk;
+    // The prompts wait for the values they name.
+    this.ntfyAgent.set(
+      serverOk ? fillPrompt(s.prompts.ntfy, [server, ...serverCommands(server)]) : undefined,
+    );
+    this.tokenAgent.set(
+      serverOk && topicOk ? fillPrompt(s.prompts.token, [server, topic]) : undefined,
+    );
   }
 
   private save(): void {
