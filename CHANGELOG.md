@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-05
+
+A plainer Nightping panel: one question per card, and only the first step until notifications reach your phone.
+
 ### Changed
 
 - **A plainer panel.** Until the first destination works, the panel shows only how notifications should reach your phone. **AI agents** has a card of its own: each agent has one button (**Connect**, or **Disconnect** once it is connected) and the card has one **How it works**. The checkboxes for each kind of event and each connected agent, the example and the other rules are under **Change the rules**; a terminal that cannot notify is still pointed out above them. A destination shows **Send Test** and **Edit**, and **Remove Destination** is in **Edit**. **Send a message** is folded until you open it. Status is plain text instead of a button-like label.
@@ -56,5 +60,6 @@ First release: phone notifications through your own ntfy server when VS Code tas
 - **Nightping: Send Test Notification**, and when it fails, a plain reason with the next step: the server needs or refused the token, redirects elsewhere, cannot be reached, or does not answer within 10 seconds.
 - **Nightping: Set Access Token…** and **Clear Access Token**. The token is kept in VS Code's secret storage on this computer, never in the settings.
 
+[0.2.1]: https://github.com/mbKalkan/nightping/releases/tag/v0.2.1
 [0.2.0]: https://github.com/mbKalkan/nightping/releases/tag/v0.2.0
 [0.1.0]: https://github.com/mbKalkan/nightping/releases/tag/v0.1.0
