@@ -28,6 +28,8 @@
   "{0} answered HTTP {1}.": "{0} HTTP {1} ile yanıt verdi.",
   "Could not reach {0} ({1}).": "{0} adresine ulaşılamadı ({1}).",
   "{0} did not answer within {1} seconds.": "{0} {1} saniye içinde yanıt vermedi.",
+  "Could not reach ntfy on this computer at {0} ({1}).": "Bu bilgisayardaki ntfy'ye {0} adresinden ulaşılamadı ({1}).",
+  "ntfy on this computer did not answer at {0} within {1} seconds.": "Bu bilgisayardaki ntfy {0} adresinde {1} saniye içinde yanıt vermedi.",
   "Ready": "Hazır",
   "Not set up": "Kurulmadı",
   "Check the settings": "Ayarları kontrol edin",

@@ -282,7 +282,6 @@ export class DestinationForm {
         radio.value = device.address;
         radio.dataset.name = device.name;
         if (!device.online) radio.dataset.offline = 'true';
-        if (device.self) radio.dataset.self = 'true';
         const label = element('label', undefined, device.name);
         label.htmlFor = id;
         const notes = [
@@ -343,15 +342,15 @@ export class DestinationForm {
   }
 
   /**
-   * On the Tailscale way, asks whether ntfy already runs on the server in the field. Not for this
-   * computer: Windows does not reach its own `tailscale serve` address, so the answer would be no.
+   * On the Tailscale way, asks whether ntfy already runs on the server in the field. For this
+   * computer the extension asks its ntfy where `tailscale serve` passes the address on to.
    */
   private askServer(): void {
     const server = normalizeServer(this.server.value);
     const device = [...this.devices.querySelectorAll<HTMLInputElement>('input')].find(
       (radio) => radio.value === server,
     );
-    if (this.mode.way !== 'tailscale' || !isServerUrl(server) || device?.dataset.self) {
+    if (this.mode.way !== 'tailscale' || !isServerUrl(server)) {
       this.running = undefined;
     } else if (this.running?.server !== server) {
       this.running = { server, name: device?.dataset.name ?? hostOf(server), state: 'checking' };

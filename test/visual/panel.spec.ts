@@ -364,6 +364,10 @@ test('asks Tailscale for the devices and fills in the chosen server', async ({ p
   await expect(devices.getByLabel('desk', { exact: false })).toBeChecked();
   await expect(devices.getByLabel('box')).not.toBeChecked();
   await expect(page.getByText(/is offline right now/)).toBeHidden();
+  // A typed address is asked about once the field is left.
+  await server(page).blur();
+  await expect(page.getByText(d.tailscale.server.checking.replace('{0}', 'desk'))).toBeVisible();
+  await panel.post({ type: 'serverCheck', server: 'https://desk.tail1234.ts.net', running: false });
 
   await commands.nth(1).getByRole('button', { name: d.copy }).click();
   await expect(commands.nth(1).getByRole('button', { name: d.copied })).toBeVisible();
@@ -372,17 +376,18 @@ test('asks Tailscale for the devices and fills in the chosen server', async ({ p
   await destinationCard(page).screenshot({ path: `${SCREENS}/tailscale-dark.png` });
   await saveButton(page).click();
   const sent = await panel.sent();
-  // This computer is not asked whether ntfy runs on it.
-  expect(sent.slice(0, 2)).toEqual([
+  // Each server is asked whether ntfy runs on it, this computer too once its address is typed.
+  expect(sent.slice(0, 3)).toEqual([
     { type: 'findTailscale' },
     { type: 'checkServer', server: 'https://box.tail1234.ts.net' },
+    { type: 'checkServer', server: 'https://desk.tail1234.ts.net' },
   ]);
-  expect(sent.slice(2, 5)).toEqual([
+  expect(sent.slice(3, 6)).toEqual([
     { type: 'copy', text: 'tailscale serve --bg 2586' },
     { type: 'openGuide', link: 'tailscale-download' },
     { type: 'openGuide', link: 'ntfy-install' },
   ]);
-  expect(sent[5]).toMatchObject({ type: 'save', server: 'https://desk.tail1234.ts.net' });
+  expect(sent[6]).toMatchObject({ type: 'save', server: 'https://desk.tail1234.ts.net' });
 });
 
 test('skips setting up a server where ntfy already runs, and asks for the phoneâ€™s topic', async ({
@@ -427,8 +432,11 @@ test('skips setting up a server where ntfy already runs, and asks for the phoneâ
   await expect(page.getByText(d.tailscale.server.running.replace('{0}', 'nas'))).toBeVisible();
   await destinationCard(page).screenshot({ path: `${SCREENS}/tailscale-existing-dark.png` });
 
-  // This computer is not asked; the guide goes back to setting ntfy up, with the suggested topic.
+  // This computer is asked too; without ntfy the guide goes back to setting it up, with the
+  // suggested topic.
   await devices.getByLabel('desk', { exact: false }).check();
+  await expect(page.getByText(d.tailscale.server.checking.replace('{0}', 'desk'))).toBeVisible();
+  await panel.post({ type: 'serverCheck', server: 'https://desk.tail1234.ts.net', running: false });
   await expect(page.getByText(/^ntfy already runs on/)).toBeHidden();
   await expect(stepTitles(page)).toContainText([d.steps.run.title]);
   await expect(topic(page)).toHaveValue(suggested);
@@ -445,6 +453,7 @@ test('skips setting up a server where ntfy already runs, and asks for the phoneâ
   const sent = await panel.sent();
   expect(sent.filter((message) => message.type === 'checkServer')).toEqual([
     { type: 'checkServer', server: nas },
+    { type: 'checkServer', server: 'https://desk.tail1234.ts.net' },
     { type: 'checkServer', server: 'https://box.tail1234.ts.net' },
     { type: 'checkServer', server: nas },
   ]);

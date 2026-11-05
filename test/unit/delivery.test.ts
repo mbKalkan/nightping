@@ -45,6 +45,39 @@ describe('deliver', () => {
     expect(deliveryError(result)).toBeUndefined();
   });
 
+  it('sends to ntfy on this computer when the server is this computer, with the server’s token', async () => {
+    const desk = 'https://desk.tail1234.ts.net';
+    const targets = readDestinations([
+      { server: desk, topic: 'a' },
+      { server: 'https://ntfy.sh', topic: 'b' },
+    ]).entries;
+    const seen: Array<{ server: string; token?: string }> = [];
+    const result = await deliver(
+      english,
+      targets,
+      message,
+      (server) => Promise.resolve(server === desk ? 'tk_desk' : undefined),
+      (target, _message, options) => {
+        seen.push({ server: target.server, token: options.token });
+        return Promise.resolve<PublishResult>(
+          target.topic === 'a'
+            ? { ok: false, reason: 'unreachable', detail: 'ECONNREFUSED' }
+            : { ok: true },
+        );
+      },
+      new Map([[desk, 'http://127.0.0.1:2586']]),
+    );
+    expect(seen).toEqual([
+      { server: 'http://127.0.0.1:2586', token: 'tk_desk' },
+      { server: 'https://ntfy.sh', token: undefined },
+    ]);
+    // The list still names the destination by its own address.
+    expect(result.failures[0].destination.server).toBe(desk);
+    expect(deliveryError(result)).toBe(
+      'desk.tail1234.ts.net: Could not reach ntfy on this computer at http://127.0.0.1:2586 (ECONNREFUSED).',
+    );
+  });
+
   it('names each destination that did not get it', async () => {
     const results: Record<string, PublishResult> = {
       a: { ok: true },

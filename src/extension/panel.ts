@@ -25,7 +25,7 @@ import type { Pauser } from './pause';
 import type { AgentBridge } from './agentBridge';
 import { settingFor } from './prefs';
 import { currentPrefs, type Sender, type SendOutcome } from './sender';
-import { tailscaleStatus } from './tailscale';
+import { routeFor, tailscaleStatus } from './tailscale';
 import { notReadyText, panelStrings, testMessage } from './texts';
 import { buildWebviewHtml } from './webviewHtml';
 
@@ -204,7 +204,10 @@ export class Panel {
         // Only an address the user chose in the guide, and only its health check.
         const server = typeof message.server === 'string' ? normalizeServer(message.server) : '';
         if (!isServerUrl(server)) return;
-        this.post({ type: 'serverCheck', server, running: await isRunning(server) });
+        // On the server computer itself, its own ntfy: Windows does not reach its own address.
+        const routes = await this.context.sender.routes.get([server], true);
+        const running = await isRunning(routeFor(routes, server) ?? server);
+        this.post({ type: 'serverCheck', server, running });
         return;
       }
       case 'send': {

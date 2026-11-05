@@ -2,8 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { serverCommands } from '../../src/shared/guide';
 import {
   cliCandidates,
+  readServeRoutes,
   readTailscaleStatus,
+  routeFor,
+  ServeRoutes,
+  serveRoutes,
   tailscaleStatus,
+  type Routes,
   type Run,
 } from '../../src/extension/tailscale';
 
@@ -134,6 +139,116 @@ describe('tailscaleStatus', () => {
       '/Applications/Tailscale.app/Contents/MacOS/Tailscale',
     );
     expect(cliCandidates('linux', {})[0]).toBe('tailscale');
+  });
+});
+
+// Shaped like `tailscale serve status --json` (Tailscale 1.104) after `tailscale serve --bg 2586`.
+const serve = {
+  TCP: { '443': { HTTPS: true } },
+  Web: {
+    'desk.tail1234.ts.net:443': { Handlers: { '/': { Proxy: 'http://127.0.0.1:2586' } } },
+  },
+};
+
+describe('readServeRoutes', () => {
+  it('maps each site served at its root to the address it passes on to', () => {
+    const routes = readServeRoutes(JSON.stringify(serve));
+    expect([...routes]).toEqual([['https://desk.tail1234.ts.net', 'http://127.0.0.1:2586']]);
+    expect(routeFor(routes, 'https://desk.tail1234.ts.net')).toBe('http://127.0.0.1:2586');
+    expect(routeFor(routes, 'https://DESK.tail1234.ts.net/')).toBe('http://127.0.0.1:2586');
+  });
+
+  it('keeps the port of a site on another port', () => {
+    const routes = readServeRoutes(
+      JSON.stringify({
+        Web: {
+          'desk.tail1234.ts.net:8443': { Handlers: { '/': { Proxy: 'http://127.0.0.1:80/' } } },
+        },
+      }),
+    );
+    expect(routeFor(routes, 'https://desk.tail1234.ts.net:8443')).toBe('http://127.0.0.1:80');
+    expect(routeFor(routes, 'https://desk.tail1234.ts.net')).toBeUndefined();
+  });
+
+  it('leaves out what is not a whole site passed on to an http address', () => {
+    const routes = readServeRoutes(
+      JSON.stringify({
+        Web: {
+          'a.tail1234.ts.net:443': { Handlers: { '/ntfy': { Proxy: 'http://127.0.0.1:2586' } } },
+          'b.tail1234.ts.net:443': { Handlers: { '/': { Path: '/srv/site' } } },
+          'c.tail1234.ts.net:443': {
+            Handlers: { '/': { Proxy: 'https+insecure://127.0.0.1:8443' } },
+          },
+          'd.tail1234.ts.net:443': { Handlers: { '/': { Text: 'hello' } } },
+        },
+      }),
+    );
+    expect(routes.size).toBe(0);
+    // An address under a path is not the site's root.
+    expect(
+      routeFor(readServeRoutes(JSON.stringify(serve)), 'https://desk.tail1234.ts.net/ntfy'),
+    ).toBe(undefined);
+  });
+
+  it('finds nothing in nothing served, or in output it cannot read', () => {
+    expect(readServeRoutes('{}').size).toBe(0);
+    expect(readServeRoutes('not json').size).toBe(0);
+    expect(readServeRoutes('[]').size).toBe(0);
+  });
+});
+
+describe('serveRoutes', () => {
+  it('asks tailscale serve, and finds nothing when Tailscale is missing or stopped', async () => {
+    const asked: string[][] = [];
+    const routes = await serveRoutes((_file, args) => {
+      asked.push(args);
+      return Promise.resolve({ kind: 'output', stdout: JSON.stringify(serve) });
+    });
+    expect(asked).toEqual([['serve', 'status', '--json']]);
+    expect(routes.size).toBe(1);
+    expect((await serveRoutes(() => Promise.resolve({ kind: 'missing' }))).size).toBe(0);
+    expect((await serveRoutes(() => Promise.resolve({ kind: 'failed' }))).size).toBe(0);
+  });
+});
+
+describe('ServeRoutes', () => {
+  const desk = 'https://desk.tail1234.ts.net';
+  const nas = 'https://nas.tail1234.ts.net';
+
+  function counting(): { routes: ServeRoutes; asked: () => number } {
+    let asked = 0;
+    const routes = new ServeRoutes(() => {
+      asked++;
+      return Promise.resolve<Routes>(new Map([[desk, 'http://127.0.0.1:2586']]));
+    });
+    return { routes, asked: () => asked };
+  }
+
+  it('does not ask without a server on Tailscale', async () => {
+    const { routes, asked } = counting();
+    expect((await routes.get(['https://ntfy.sh', 'https://ntfy.example.com'])).size).toBe(0);
+    expect((await routes.get([])).size).toBe(0);
+    expect(asked()).toBe(0);
+  });
+
+  it('asks once and keeps the answer while the servers on Tailscale stay the same', async () => {
+    const { routes, asked } = counting();
+    await routes.get([desk, 'https://ntfy.sh']);
+    await routes.get(['https://ntfy.sh', desk, desk]);
+    expect(asked()).toBe(1);
+    // Another server on Tailscale.
+    await routes.get([desk, nas]);
+    expect(asked()).toBe(2);
+  });
+
+  it('asks again for a test, and after a send failed', async () => {
+    const { routes, asked } = counting();
+    await routes.get([desk]);
+    await routes.get([desk], true);
+    expect(asked()).toBe(2);
+    routes.forget();
+    await routes.get([desk]);
+    expect(asked()).toBe(3);
   });
 });
 

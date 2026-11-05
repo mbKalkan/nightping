@@ -69,6 +69,15 @@ export function hostOf(server: string): string {
   }
 }
 
+/** A MagicDNS address, which only devices on the user's Tailscale reach. */
+export function isOnTailscale(server: string): boolean {
+  try {
+    return new URL(server).hostname.endsWith('.ts.net');
+  } catch {
+    return false;
+  }
+}
+
 /** Its name, or the server's host when it has none. */
 export function displayName(destination: { name: string; server: string }): string {
   return destination.name.trim() || hostOf(destination.server);
