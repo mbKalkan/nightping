@@ -31,7 +31,7 @@ Nightping ships with **no server, no topic and no account**, and sends nothing u
 - **Your own ntfy server**: one you already run, at home or at work.
 - **Your own server over Tailscale**: private, only your own devices reach it.
 
-Each way ends with **Save and Send Test**: the test arrives on your phone within seconds, and the card then lists the destination with **Send Test**, **Edit** and **Remove**.
+Each way ends with **Save and Send Test**: the test arrives on your phone within seconds, and the card then lists the destination with **Send Test** and **Edit**; **Remove Destination** is in **Edit**. Until the first destination works, the panel shows nothing else.
 
 ### With ntfy.sh (free, nothing to install)
 
@@ -174,7 +174,7 @@ How it works:
 
 By default Nightping stays quiet while you are using any VS Code window on this computer (it is focused and you used it in the last few seconds), even when the run finished or the agent works in another window, and about runs that succeed in under 30 seconds. Failures notify at any duration.
 
-The **When you get a notification** card of the Nightping panel says these rules in one sentence, next to an example of what your phone shows. Below it, each kind of event and each connected agent has its own checkbox, and **Change the rules** opens the rest. Changes apply right away:
+The **When you get a notification** card of the Nightping panel says these rules in plain sentences. **Change the rules** opens the rest: a checkbox for each kind of event and each connected agent, and an example of what your phone shows. Changes apply right away:
 
 - each kind of event on or off (`nightping.notifyOn.*`),
 - the minimum duration (`nightping.minimumDuration`, in seconds; `0` notifies about every run),
@@ -187,7 +187,7 @@ Hovering over the status bar item also shows the last notification, or why it wa
 
 ## Send your own message
 
-Type a message in the panel's **Send a message** card, or run **Nightping: Send Message…**, and it goes to your phone at once, even while notifications are paused.
+Open **Send a message** at the bottom of the panel and type a message, or run **Nightping: Send Message…**, and it goes to your phone at once, even while notifications are paused.
 
 Key bindings and other extensions pass the message to the `nightping.send` command, as text or as an object:
 
