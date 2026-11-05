@@ -1,7 +1,7 @@
 import { createServer, type IncomingHttpHeaders, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
-import { publish } from '../../src/extension/ntfy';
+import { isRunning, publish } from '../../src/extension/ntfy';
 
 interface Request {
   method: string | undefined;
@@ -175,5 +175,45 @@ describe('publish', () => {
     await expect(
       publish({ server: ntfy.server, topic: 'alerts' }, test, { timeoutMs: 200 }),
     ).resolves.toEqual({ ok: false, reason: 'timeout', seconds: 0.2 });
+  });
+});
+
+describe('isRunning', () => {
+  it('asks the health check, without a token, and sees a healthy ntfy', async () => {
+    const ntfy = await fakeNtfy(json(200, { healthy: true }));
+    await expect(isRunning(ntfy.server)).resolves.toBe(true);
+    expect(ntfy.requests).toHaveLength(1);
+    expect(ntfy.requests[0].method).toBe('GET');
+    expect(ntfy.requests[0].url).toBe('/v1/health');
+    expect(ntfy.requests[0].headers.authorization).toBeUndefined();
+  });
+
+  it('asks under the path of a server that lives under one', async () => {
+    const ntfy = await fakeNtfy(json(200, { healthy: true }));
+    await expect(isRunning(`${ntfy.server}/ntfy`)).resolves.toBe(true);
+    expect(ntfy.requests[0].url).toBe('/ntfy/v1/health');
+  });
+
+  it('does not take an unhealthy answer, another web server or a redirect for ntfy', async () => {
+    for (const reply of [
+      json(200, { healthy: false }),
+      json(404, { error: 'page not found' }),
+      json(302, {}, { Location: 'https://example.com/' }),
+      (response: ServerResponse) => {
+        response.writeHead(200, { 'Content-Type': 'text/html' });
+        response.end('<html>It works</html>');
+      },
+    ]) {
+      const ntfy = await fakeNtfy(reply);
+      await expect(isRunning(ntfy.server)).resolves.toBe(false);
+    }
+  });
+
+  it('says no for a server that cannot be reached or does not answer', async () => {
+    const closed = await fakeNtfy(ok);
+    await closed.close();
+    await expect(isRunning(closed.server)).resolves.toBe(false);
+    const silent = await fakeNtfy(() => {});
+    await expect(isRunning(silent.server, 200)).resolves.toBe(false);
   });
 });

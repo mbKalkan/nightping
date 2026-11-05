@@ -399,6 +399,11 @@ body.vscode-high-contrast .ng-button:hover:not(:disabled, .ng-link) {
   white-space: pre-line;
 }
 
+/* Lines up with the result's text, past its border. */
+.ng-destination > .ng-result-action {
+  margin: 8px 0 0 11px;
+}
+
 /* The destinations: on or off when there are several, then where it goes, then its buttons. */
 .ng-dest-list {
   display: grid;

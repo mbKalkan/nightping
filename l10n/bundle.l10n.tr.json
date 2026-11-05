@@ -293,5 +293,11 @@
   "Or let an AI agent put Tailscale on a computer: paste the prompt into Claude Code, Codex or Copilot there.": "Ya da Tailscale'i bir bilgisayara AI ajanınız kursun: prompt'u oradaki Claude Code, Codex ya da Copilot'a yapıştırın.",
   "Or let an AI agent do this on the server: paste the prompt into Claude Code, Codex or Copilot there.": "Ya da bunu sunucuda AI ajanınız yapsın: prompt'u oradaki Claude Code, Codex ya da Copilot'a yapıştırın.",
   "No token yet? An AI agent on your ntfy server can make one: paste the prompt into Claude Code, Codex or Copilot there.": "Token'ınız yok mu? ntfy sunucunuzdaki bir AI ajanı oluşturabilir: prompt'u oradaki Claude Code, Codex ya da Copilot'a yapıştırın.",
-  "Copied. Paste it into the chat of your agent; it asks before it changes anything.": "Kopyalandı. Ajanınızın sohbetine yapıştırın; bir şeyi değiştirmeden önce size sorar."
+  "Copied. Paste it into the chat of your agent; it asks before it changes anything.": "Kopyalandı. Ajanınızın sohbetine yapıştırın; bir şeyi değiştirmeden önce size sorar.",
+  "It is on Tailscale: check that Tailscale is connected on this computer and that the server computer is on.": "Bu sunucu Tailscale'de: bu bilgisayarda Tailscale'in bağlı, sunucu bilgisayarın da açık olduğuna bakın.",
+  "Use the topic of your phone": "Telefonunuzdaki topic'i kullanın",
+  "If your phone already gets notifications from {0}, enter the topic it is subscribed to. If not, in the ntfy app tap +, turn on “Use another server”, enter {0}, then this topic.": "Telefonunuz {0} adresinden zaten bildirim alıyorsa abone olduğu topic'i girin. Almıyorsa ntfy uygulamasında + simgesine dokunun, “Use another server” seçeneğini açın, {0} adresini, sonra bu topic'i girin.",
+  "Checking whether ntfy runs on {0}…": "{0} üzerinde ntfy çalışıyor mu diye bakılıyor…",
+  "ntfy already runs on {0}, so there is nothing to set up there.": "{0} üzerinde ntfy zaten çalışıyor; orada kurulacak bir şey yok.",
+  "No ntfy answers on {0} yet: set it up in the next step. If you already did, check that {0} is on.": "{0} üzerinde henüz yanıt veren bir ntfy yok: bir sonraki adımda kurun. Kurduysanız {0} bilgisayarının açık olduğuna bakın."
 }

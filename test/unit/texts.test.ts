@@ -57,6 +57,27 @@ describe('failureText', () => {
       'https://ntfy.example.com did not answer within 10 seconds.',
     );
   });
+
+  it('points at Tailscale when the server has a Tailscale address', () => {
+    const tailnet = 'https://server.example-tailnet.ts.net';
+    const hint =
+      'It is on Tailscale: check that Tailscale is connected on this computer and that the server computer is on.';
+    expect(
+      failureText(
+        english,
+        { ok: false, reason: 'unreachable', detail: 'ENOTFOUND' },
+        tailnet,
+        false,
+      ),
+    ).toBe(`Could not reach ${tailnet} (ENOTFOUND). ${hint}`);
+    expect(
+      failureText(english, { ok: false, reason: 'timeout', seconds: 10 }, tailnet, false),
+    ).toBe(`${tailnet} did not answer within 10 seconds. ${hint}`);
+    // Its token problem is not about Tailscale.
+    expect(
+      failureText(english, { ok: false, reason: 'unauthorized', status: 403 }, tailnet, false),
+    ).not.toContain('Tailscale');
+  });
 });
 
 describe('panelStrings', () => {

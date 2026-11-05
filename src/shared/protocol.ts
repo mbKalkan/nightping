@@ -108,6 +108,8 @@ export interface DestinationStrings {
     topicOwn: StepText;
     /** On one's own server over Tailscale; `{0}` is its address. */
     topicTailscale: StepText;
+    /** On a server over Tailscale where ntfy already runs; `{0}` is its address. */
+    topicExisting: StepText;
     save: StepText;
   };
   server: string;
@@ -125,6 +127,8 @@ export interface DestinationStrings {
   tokenSaved: string;
   tokenInvalid: string;
   removeToken: string;
+  /** Under a test that the server refused for want of a token. */
+  enterToken: string;
   name: string;
   /** `{0}` is the name used when the field stays empty. */
   nameHelp: string;
@@ -149,6 +153,8 @@ export interface DestinationStrings {
     noMagicDns: string;
     openDns: string;
     typeAddress: string;
+    /** Whether ntfy already runs on the chosen server; `{0}` is its name. */
+    server: Record<ServerCheck, string>;
   };
   run: {
     /** The address in the commands until a server is chosen. */
@@ -241,6 +247,9 @@ export interface TailscaleDevice {
   /** `https://` and its MagicDNS name; empty without MagicDNS. */
   address: string;
 }
+
+/** Whether ntfy already runs on a server: still asking, it answers, or nothing answers. */
+export type ServerCheck = 'checking' | 'running' | 'none';
 
 /** What the tailscale command on this computer says. */
 export type TailscaleView =
@@ -340,9 +349,14 @@ export type HostToWebviewMessage =
   | { type: 'saved' }
   /** Why the destination was not saved. */
   | { type: 'notSaved'; error: string }
-  /** How a test went; `to` names the one destination it went to. */
-  | { type: 'result'; time: number; error?: string; to?: string }
+  /**
+   * How a test went; `to` names the one destination it went to. `needsToken` is the key of that
+   * destination when its server refused the test for want of a token, or refused the saved one.
+   */
+  | { type: 'result'; time: number; error?: string; to?: string; needsToken?: string }
   | { type: 'tailscale'; status: TailscaleView }
+  /** Whether ntfy answers at this address. */
+  | { type: 'serverCheck'; server: string; running: boolean }
   /** The Command Palette asked for this way's guide. */
   | { type: 'guide'; way: SetupWay }
   /** How the message typed in the panel went. */
@@ -369,6 +383,8 @@ export type WebviewToHostMessage =
   | { type: 'setEnabled'; key: string; enabled: boolean }
   /** Asks the tailscale command on this computer for its devices. */
   | { type: 'findTailscale' }
+  /** Asks the server whether ntfy already runs there. */
+  | { type: 'checkServer'; server: string }
   | { type: 'openGuide'; link: GuideLink }
   /** A message the user typed; it goes out even while notifications are paused. */
   | { type: 'send'; message: string }

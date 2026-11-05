@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **More than one destination.** Notifications can go to several topics, on ntfy.sh, your own server or both, and every destination that is on gets every notification. The panel's **Where notifications go** card lists them with **Send Test**, **Edit** and **Remove**, a checkbox turns one off without removing it, and **Add Another Destination** adds the next. **Recent notifications** says **Partly sent** and names the destinations that failed.
 - **Guided setup in three ways.** The panel asks how notifications should reach your phone and walks you through the way you pick: ntfy.sh, your own ntfy server, or your own server over Tailscale. The Tailscale guide checks the `tailscale` command on this computer, lists your Tailscale computers so you can pick the server and get its `https://….ts.net` address, shows the two commands to run there (ntfy with Docker, then `tailscale serve`) with the address filled in, and says how to subscribe on the phone.
 - **Delegate to Agent** under the setup steps an AI agent can do on a computer: putting Tailscale on it, running ntfy on the server, and keeping a topic on your own server private with an access token of its own. It copies a ready prompt, with the server's address and the topic filled in, to paste into Claude Code, Codex or Copilot on that computer; **See the prompt** shows what the agent will be asked. The prompts follow the language of VS Code.
+- **Another computer, same server.** When you pick a server in the Tailscale guide, Nightping asks its ntfy health check whether ntfy already runs there. If it does, the guide leaves out the step that sets it up and asks for the topic your phone already gets.
+- **Set Access Token** under a test that the server refused for want of an access token, or because it refused the saved one, opens that destination with its token field.
 - **Nightping: Add a Destination…** (formerly **Set Up…**) asks which way first; for Tailscale it opens the panel's guide. **Nightping: Remove a Destination…** removes one after asking. **Set Access Token…** and **Clear Access Token** ask which server when there is more than one.
 
 ### Changed
@@ -19,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A notification that could not reach a Tailscale address (`….ts.net`) now says to check that Tailscale is connected on this computer and that the server computer is on.
 - **Only when I am not using VS Code** now looks at every VS Code window on this computer. An agent's finished turn arrived as a notification while you worked in another VS Code window, because only one window receives the agents' events and it looked at itself. A task or command that finishes in one window now also stays quiet while you work in another.
 
 ## [0.1.0] - 2026-11-05

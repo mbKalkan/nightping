@@ -248,7 +248,7 @@ export const twoDestinations: PanelState = {
 };
 
 /** What the tailscale command says on a computer that is on a tailnet with one server. */
-export const tailscaleReady: TailscaleView = {
+export const tailscaleReady: Extract<TailscaleView, { kind: 'ready' }> = {
   kind: 'ready',
   name: 'desk',
   magicDns: true,

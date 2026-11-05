@@ -1,6 +1,6 @@
 // User-facing text that the panel and the commands share. Every message goes through `t`:
 // VS Code's `l10n.t` in the extension, a plain formatter in tests, so both show the same words.
-import { NAME_LIMIT } from '../shared/destination';
+import { hostOf, NAME_LIMIT } from '../shared/destination';
 import { NTFY_PORT } from '../shared/guide';
 import type { PanelStrings } from '../shared/protocol';
 import type { Message, PublishResult } from './ntfy';
@@ -135,6 +135,13 @@ export function panelStrings(t: Translate): PanelStrings {
             '{0}',
           ),
         },
+        topicExisting: {
+          title: t('Use the topic of your phone'),
+          help: t(
+            'If your phone already gets notifications from {0}, enter the topic it is subscribed to. If not, in the ntfy app tap +, turn on “Use another server”, enter {0}, then this topic.',
+            '{0}',
+          ),
+        },
         save: {
           title: t('Name it and send a test'),
           help: t(
@@ -163,6 +170,7 @@ export function panelStrings(t: Translate): PanelStrings {
       tokenSaved: t('Saved. Type a new token to replace it.'),
       tokenInvalid: t('An access token has no spaces or special characters.'),
       removeToken: t('Remove'),
+      enterToken: t('Set Access Token'),
       name: t('Name'),
       nameHelp: t('Optional. Left empty, the list shows {0}.', '{0}'),
       nameInvalid: t('Use up to {0} characters.', NAME_LIMIT),
@@ -198,6 +206,14 @@ export function panelStrings(t: Translate): PanelStrings {
         ),
         openDns: t('Open DNS Settings'),
         typeAddress: t('Server address'),
+        server: {
+          checking: t('Checking whether ntfy runs on {0}…', '{0}'),
+          running: t('ntfy already runs on {0}, so there is nothing to set up there.', '{0}'),
+          none: t(
+            'No ntfy answers on {0} yet: set it up in the next step. If you already did, check that {0} is on.',
+            '{0}',
+          ),
+        },
       },
       delegate: {
         button: t('Delegate to Agent'),
@@ -484,8 +500,18 @@ export function failureText(
         ? t('{0} answered HTTP {1}: {2}', server, result.status, result.detail)
         : t('{0} answered HTTP {1}.', server, result.status);
     case 'unreachable':
-      return t('Could not reach {0} ({1}).', server, result.detail);
+      return withTailscale(t, server, t('Could not reach {0} ({1}).', server, result.detail));
     case 'timeout':
-      return t('{0} did not answer within {1} seconds.', server, result.seconds);
+      return withTailscale(
+        t,
+        server,
+        t('{0} did not answer within {1} seconds.', server, result.seconds),
+      );
   }
+}
+
+/** A MagicDNS address is reached only over Tailscale, so that is the first thing to check. */
+function withTailscale(t: Translate, server: string, text: string): string {
+  if (!hostOf(server).toLowerCase().endsWith('.ts.net')) return text;
+  return `${text} ${t('It is on Tailscale: check that Tailscale is connected on this computer and that the server computer is on.')}`;
 }

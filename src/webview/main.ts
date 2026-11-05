@@ -113,12 +113,16 @@ class PanelView {
     this.destination.notSaved(error);
   }
 
-  sent(time: number, error?: string, to?: string): void {
-    this.destination.sent(time, error, to);
+  sent(time: number, error?: string, to?: string, needsToken?: string): void {
+    this.destination.sent(time, error, to, needsToken);
   }
 
   tailscale(status: TailscaleView): void {
     this.destination.showTailscale(status);
+  }
+
+  serverCheck(server: string, running: boolean): void {
+    this.destination.serverCheck(server, running);
   }
 
   guide(way: SetupWay): void {
@@ -218,9 +222,11 @@ window.addEventListener('message', (event: MessageEvent<HostToWebviewMessage>) =
   } else if (message.type === 'notSaved') {
     panel?.notSaved(message.error);
   } else if (message.type === 'result') {
-    panel?.sent(message.time, message.error, message.to);
+    panel?.sent(message.time, message.error, message.to, message.needsToken);
   } else if (message.type === 'tailscale') {
     panel?.tailscale(message.status);
+  } else if (message.type === 'serverCheck') {
+    panel?.serverCheck(message.server, message.running);
   } else if (message.type === 'guide') {
     panel?.guide(message.way);
   } else if (message.type === 'messageResult') {

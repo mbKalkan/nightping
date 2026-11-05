@@ -353,6 +353,7 @@ test('asks Tailscale for the devices and fills in the chosen server', async ({ p
   await devices.getByLabel('box').check();
   await expect(server(page)).toHaveValue('https://box.tail1234.ts.net');
   await expect(page.getByText(d.tailscale.offlineChosen.replace('{0}', 'box'))).toBeVisible();
+  await expect(page.getByText(d.tailscale.server.checking.replace('{0}', 'box'))).toBeVisible();
   await expect(commands.nth(0)).toContainText('-e NTFY_BASE_URL=https://box.tail1234.ts.net');
   await expect(commands.nth(1)).toHaveText(/tailscale serve --bg 2586/);
   await expect(
@@ -371,13 +372,83 @@ test('asks Tailscale for the devices and fills in the chosen server', async ({ p
   await destinationCard(page).screenshot({ path: `${SCREENS}/tailscale-dark.png` });
   await saveButton(page).click();
   const sent = await panel.sent();
-  expect(sent.slice(0, 1)).toEqual([{ type: 'findTailscale' }]);
-  expect(sent.slice(1, 4)).toEqual([
+  // This computer is not asked whether ntfy runs on it.
+  expect(sent.slice(0, 2)).toEqual([
+    { type: 'findTailscale' },
+    { type: 'checkServer', server: 'https://box.tail1234.ts.net' },
+  ]);
+  expect(sent.slice(2, 5)).toEqual([
     { type: 'copy', text: 'tailscale serve --bg 2586' },
     { type: 'openGuide', link: 'tailscale-download' },
     { type: 'openGuide', link: 'ntfy-install' },
   ]);
-  expect(sent[4]).toMatchObject({ type: 'save', server: 'https://desk.tail1234.ts.net' });
+  expect(sent[5]).toMatchObject({ type: 'save', server: 'https://desk.tail1234.ts.net' });
+});
+
+test('skips setting up a server where ntfy already runs, and asks for the phone’s topic', async ({
+  page,
+}) => {
+  const nas = 'https://nas.tail1234.ts.net';
+  await page.setViewportSize({ width: 1100, height: 1600 });
+  const panel = await openPanel(page, 'dark');
+  await panel.init(notSetUp);
+  await way(page, 'tailscale').click();
+  await panel.post({
+    type: 'tailscale',
+    status: {
+      ...tailscaleReady,
+      devices: [
+        ...tailscaleReady.devices,
+        { name: 'nas', os: 'linux', online: true, self: false, address: nas },
+      ],
+    },
+  });
+  const devices = page.getByRole('radiogroup', { name: d.steps.pickServer.title });
+  const suggested = await topic(page).inputValue();
+  await devices.getByLabel('nas').check();
+  await expect(page.getByText(d.tailscale.server.checking.replace('{0}', 'nas'))).toBeVisible();
+  await panel.post({ type: 'serverCheck', server: nas, running: true });
+  await expect(page.getByText(d.tailscale.server.running.replace('{0}', 'nas'))).toBeVisible();
+  await expect(stepTitles(page)).toHaveText([
+    d.steps.tailscale.title,
+    d.steps.pickServer.title,
+    d.steps.topicExisting.title,
+    d.steps.save.title,
+  ]);
+  await expect(destinationCard(page).getByText(/^If your phone already gets/)).toContainText(
+    `notifications from ${nas}, enter the topic it is subscribed to`,
+  );
+  // The phone's topic is wanted, not a new one; nothing can be saved without it.
+  await expect(topic(page)).toHaveValue('');
+  await expect(page.getByText(d.topicHelp)).toBeHidden();
+  await expect(saveButton(page)).toBeDisabled();
+  // An answer about another address changes nothing.
+  await panel.post({ type: 'serverCheck', server: 'https://box.tail1234.ts.net', running: false });
+  await expect(page.getByText(d.tailscale.server.running.replace('{0}', 'nas'))).toBeVisible();
+  await destinationCard(page).screenshot({ path: `${SCREENS}/tailscale-existing-dark.png` });
+
+  // This computer is not asked; the guide goes back to setting ntfy up, with the suggested topic.
+  await devices.getByLabel('desk', { exact: false }).check();
+  await expect(page.getByText(/^ntfy already runs on/)).toBeHidden();
+  await expect(stepTitles(page)).toContainText([d.steps.run.title]);
+  await expect(topic(page)).toHaveValue(suggested);
+
+  await devices.getByLabel('box').check();
+  await panel.post({ type: 'serverCheck', server: 'https://box.tail1234.ts.net', running: false });
+  await expect(page.getByText(d.tailscale.server.none.replaceAll('{0}', 'box'))).toBeVisible();
+  await expect(stepTitles(page)).toContainText([d.steps.run.title, d.steps.topicTailscale.title]);
+
+  await devices.getByLabel('nas').check();
+  await panel.post({ type: 'serverCheck', server: nas, running: true });
+  await topic(page).fill('phone-topic');
+  await saveButton(page).click();
+  const sent = await panel.sent();
+  expect(sent.filter((message) => message.type === 'checkServer')).toEqual([
+    { type: 'checkServer', server: nas },
+    { type: 'checkServer', server: 'https://box.tail1234.ts.net' },
+    { type: 'checkServer', server: nas },
+  ]);
+  expect(sent.at(-1)).toMatchObject({ type: 'save', server: nas, topic: 'phone-topic' });
 });
 
 test('says what to do when Tailscale is missing, off or signed out, or has no MagicDNS', async ({
@@ -620,6 +691,42 @@ test('sends a test to one destination and tells how it went', async ({ page }) =
   );
   await expect(result(page)).not.toHaveClass(/ng-failed/);
   await expect(testButton(page)).toBeEnabled();
+});
+
+test('offers the access token when the server refused a test for want of one', async ({ page }) => {
+  const panel = await openPanel(page, 'dark');
+  const noToken = { ...ownServer, hasToken: false };
+  await panel.init({ ...ready, destinations: [noToken] });
+  const setToken = destinationCard(page).getByRole('button', { name: d.enterToken });
+  const error = 'https://ntfy.example.com needs an access token for this topic (HTTP 403).';
+  await panel.post({ type: 'result', time: Date.now(), error });
+  await expect(result(page)).toHaveText(error);
+  await expect(setToken).toBeHidden();
+
+  await panel.post({ type: 'result', time: Date.now(), error, needsToken: noToken.key });
+  await expect(setToken).toBeVisible();
+  await destinationCard(page).screenshot({ path: `${SCREENS}/needs-token-dark.png` });
+  await setToken.click();
+  await expect(token(page)).toBeVisible();
+  await expect(token(page)).toBeFocused();
+  await expect(server(page)).toHaveValue(noToken.server);
+  await token(page).fill('tk_example');
+  await saveButton(page).click();
+  expect(await panel.sent()).toEqual([
+    {
+      type: 'save',
+      previous: noToken.key,
+      name: '',
+      server: noToken.server,
+      topic: noToken.topic,
+      token: 'tk_example',
+      test: true,
+    },
+  ]);
+  await panel.post({ type: 'saved' });
+  await panel.post({ type: 'result', time: Date.now(), to: 'ntfy.example.com' });
+  await expect(result(page)).toHaveText(/^Sent to ntfy\.example\.com at /);
+  await expect(setToken).toBeHidden();
 });
 
 test('shows the test result once the first destination is saved', async ({ page }) => {

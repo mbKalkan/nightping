@@ -17,6 +17,7 @@ import {
   type AppStore,
   type DestinationStrings,
   type DestinationView,
+  type ServerCheck,
   type SetupWay,
   type StepText,
   type TailscaleView,
@@ -51,6 +52,8 @@ export class DestinationForm {
   private readonly devices = element('div', 'ng-stack ng-devices');
   private readonly noMagicDns = element('p', 'ng-warning');
   private readonly offline = element('p', 'ng-warning');
+  /** Whether ntfy already runs on the chosen server. */
+  private readonly serverState = element('p', 'ng-help');
   /** Steps an AI agent can do, each with its ready prompt. */
   private readonly tailscaleAgent: Delegate;
   private readonly ntfyAgent: Delegate;
@@ -60,6 +63,10 @@ export class DestinationForm {
   private destinations: DestinationView[] = [];
   private busy = false;
   private tokenOpen = false;
+  /** The answer about the server in the field, once asked: then its setup step is not needed. */
+  private running: { server: string; name: string; state: ServerCheck } | undefined;
+  /** The topic the form started with, for when the topic of the phone is not asked for after all. */
+  private suggested = '';
   /** Shows the cancel button: there is a list to go back to. */
   private canCancel = false;
 
@@ -101,9 +108,11 @@ export class DestinationForm {
     this.devices.setAttribute('role', 'radiogroup');
     this.devices.setAttribute('aria-label', s.steps.pickServer.title);
     this.serverStep = step(s.steps.server);
+    this.serverState.setAttribute('role', 'status');
     this.serverStep.body.append(
       this.devices,
       this.offline,
+      this.serverState,
       this.noMagicDns,
       this.server.element,
       this.addToken,
@@ -165,7 +174,16 @@ export class DestinationForm {
       field.input.addEventListener('input', () => this.check());
       field.input.addEventListener('blur', () => this.check());
     }
-    this.server.input.addEventListener('input', () => this.markDevice());
+    this.server.input.addEventListener('input', () => {
+      this.markDevice();
+      if (this.running && this.running.server !== normalizeServer(this.server.value)) {
+        this.running = undefined;
+        this.matchTopic();
+        this.layout();
+      }
+    });
+    // Typed rather than picked: asked once the address is complete.
+    this.server.input.addEventListener('change', () => this.askServer());
     download.addEventListener('click', () =>
       vscode.postMessage({ type: 'openGuide', link: 'tailscale-download' }),
     );
@@ -209,7 +227,9 @@ export class DestinationForm {
     const editing = mode.way === 'edit' ? mode.destination : undefined;
     this.server.input.value = editing?.server ?? (mode.way === 'ntfy-sh' ? NTFY_SH : '');
     // A new destination starts from a topic nobody can guess.
-    this.topic.input.value = editing?.topic ?? suggestTopic();
+    this.suggested = suggestTopic();
+    this.topic.input.value = editing?.topic ?? this.suggested;
+    this.running = undefined;
     this.name.input.value = editing?.name ?? '';
     this.token.input.value = '';
     for (const field of [this.server, this.topic, this.token, this.name]) field.touched = false;
@@ -262,6 +282,7 @@ export class DestinationForm {
         radio.value = device.address;
         radio.dataset.name = device.name;
         if (!device.online) radio.dataset.offline = 'true';
+        if (device.self) radio.dataset.self = 'true';
         const label = element('label', undefined, device.name);
         label.htmlFor = id;
         const notes = [
@@ -275,7 +296,7 @@ export class DestinationForm {
           this.server.input.value = device.address;
           this.server.touched = true;
           this.markDevice();
-          this.check();
+          this.askServer();
         });
         const row = element('div', 'ng-check');
         row.append(radio, label);
@@ -290,6 +311,54 @@ export class DestinationForm {
     this.tailscaleState.textContent = this.s.tailscale.checking;
     this.tailscaleState.classList.remove('ng-warning');
     vscode.postMessage({ type: 'findTailscale' });
+  }
+
+  /** The answer to `checkServer`; one about an address no longer in the field is dropped. */
+  serverCheck(server: string, running: boolean): void {
+    if (this.running?.server !== server || this.running.state !== 'checking') return;
+    this.running.state = running ? 'running' : 'none';
+    this.matchTopic();
+    this.layout();
+  }
+
+  /**
+   * A phone that reads from a server where ntfy already runs has its topic: that one is wanted, so
+   * the suggested topic gives way, and comes back when the server changes. A typed one stays.
+   */
+  private matchTopic(): void {
+    if (this.topic.touched) return;
+    const value = this.topic.input.value;
+    if (this.running?.state === 'running') {
+      if (value === this.suggested) this.topic.input.value = '';
+    } else if (value === '') {
+      this.topic.input.value = this.suggested;
+    }
+  }
+
+  /** Shows the access token field, for a server that refused a test without one. */
+  openToken(): void {
+    this.tokenOpen = true;
+    this.layout();
+    this.token.input.focus();
+  }
+
+  /**
+   * On the Tailscale way, asks whether ntfy already runs on the server in the field. Not for this
+   * computer: Windows does not reach its own `tailscale serve` address, so the answer would be no.
+   */
+  private askServer(): void {
+    const server = normalizeServer(this.server.value);
+    const device = [...this.devices.querySelectorAll<HTMLInputElement>('input')].find(
+      (radio) => radio.value === server,
+    );
+    if (this.mode.way !== 'tailscale' || !isServerUrl(server) || device?.dataset.self) {
+      this.running = undefined;
+    } else if (this.running?.server !== server) {
+      this.running = { server, name: device?.dataset.name ?? hostOf(server), state: 'checking' };
+      vscode.postMessage({ type: 'checkServer', server });
+    }
+    this.matchTopic();
+    this.layout();
   }
 
   /** Checks the device whose address is in the field, if any, and says when it is offline. */
@@ -316,7 +385,13 @@ export class DestinationForm {
     // Whoever edits a destination has the app; the Tailscale way names it with the phone.
     this.appStep.element.hidden = way !== 'ntfy-sh' && way !== 'own-server';
     this.serverStep.element.hidden = way === 'ntfy-sh';
-    this.runStep.element.hidden = way !== 'tailscale';
+    const running = way === 'tailscale' && this.running?.state === 'running';
+    this.runStep.element.hidden = way !== 'tailscale' || running;
+    this.serverState.hidden = way !== 'tailscale' || this.running === undefined;
+    this.serverState.textContent = this.running
+      ? s.tailscale.server[this.running.state].replaceAll('{0}', this.running.name)
+      : '';
+    this.topic.help.hidden = running;
     this.topicStores.hidden = way !== 'tailscale';
     setStep(this.serverStep, way === 'tailscale' ? s.steps.pickServer : s.steps.server);
     this.devices.hidden = way !== 'tailscale' || this.devices.childElementCount === 0;
@@ -380,7 +455,9 @@ export class DestinationForm {
       this.mode.way === 'ntfy-sh' || (this.mode.way === 'edit' && hostOf(server) === 'ntfy.sh')
         ? s.steps.topic
         : this.mode.way === 'tailscale'
-          ? s.steps.topicTailscale
+          ? this.running?.state === 'running'
+            ? s.steps.topicExisting
+            : s.steps.topicTailscale
           : s.steps.topicOwn;
     setStep(this.topicStep, subscribe, serverOk ? server : s.server);
 
