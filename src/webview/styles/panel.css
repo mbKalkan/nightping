@@ -83,14 +83,13 @@ body {
   color: var(--ng-quiet);
 }
 
-/* A dot and a word: the word carries the meaning, the dot only repeats it. */
+/* A dot and a word: the word carries the meaning, the dot only repeats it. Plain text, so it
+   does not look like a button. */
 .ng-status {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 2px 10px;
-  border: 1px solid var(--ng-card-border);
-  border-radius: 999px;
+  color: var(--ng-quiet);
   white-space: nowrap;
 }
 
@@ -474,6 +473,11 @@ label.ng-dest-name {
   margin-top: 12px;
 }
 
+/* A link that starts a line lines up with the text above it. */
+.ng-add > .ng-link {
+  padding-inline: 0;
+}
+
 /* The three ways to start, each saying what it takes. */
 .ng-chooser {
   display: flex;
@@ -648,18 +652,14 @@ body.vscode-high-contrast .ng-delegate {
   max-width: 640px;
 }
 
-/* "When you get a notification": the rules beside an example, and under both the fold that
-   changes them. */
+/* "When you get a notification": the rules in sentences, then the fold that changes them. */
 .ng-rules {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 340px);
-  align-items: start;
-  gap: 12px 24px;
-  margin-bottom: 20px;
+  max-width: 640px;
+  margin-bottom: 12px;
 }
 
-.ng-rules > .ng-details {
-  grid-column: 1 / -1;
+.ng-notify > .ng-warning {
+  margin-bottom: 12px;
 }
 
 .ng-rule {
@@ -676,7 +676,8 @@ body.vscode-high-contrast .ng-delegate {
 }
 
 .ng-example {
-  margin: 0;
+  max-width: 340px;
+  margin: 4px 0 0;
 }
 
 .ng-example > .ng-help {
@@ -691,10 +692,6 @@ body.vscode-high-contrast .ng-delegate {
   margin: 0 0 8px;
   font-size: 1em;
   font-weight: 600;
-}
-
-.ng-group-help {
-  margin: -4px 0 10px;
 }
 
 .ng-row > .ng-help {
@@ -793,13 +790,14 @@ body.vscode-high-contrast .ng-delegate {
   outline-offset: 1px;
 }
 
-/* The agents: one grid for the whole list, so the checkbox, the name, the state and the
-   buttons line up from row to row; notes and the fold go under the name. */
+/* The agents: one grid for the whole list, so the name, the state and the button line up from
+   row to row; notes go under the name. */
 .ng-agent-list {
   display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) auto auto;
-  column-gap: 8px;
-  row-gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  column-gap: 16px;
+  row-gap: 8px;
+  margin-bottom: 12px;
 }
 
 .ng-agent {
@@ -810,39 +808,27 @@ body.vscode-high-contrast .ng-delegate {
   align-items: center;
 }
 
-.ng-agent > .ng-checkbox {
+.ng-agent-name {
   grid-column: 1;
+  font-weight: 600;
 }
 
-.ng-agent-label {
+.ng-agent > .ng-status {
   grid-column: 2;
-  cursor: pointer;
-}
-
-.ng-checkbox:disabled + .ng-agent-label {
-  cursor: default;
-}
-
-.ng-agent-side {
-  display: contents;
-}
-
-.ng-agent-side > .ng-status {
-  grid-column: 3;
   justify-self: start;
 }
 
 .ng-agent-actions {
   display: flex;
-  grid-column: 4;
+  grid-column: 3;
+  justify-content: flex-end;
   align-items: center;
   gap: 8px;
   min-height: 28px;
 }
 
-.ng-agent > .ng-warning,
-.ng-agent > .ng-details {
-  grid-column: 2 / -1;
+.ng-agent > .ng-warning {
+  grid-column: 1 / -1;
 }
 
 .ng-inline {
@@ -1047,25 +1033,19 @@ body.vscode-high-contrast .ng-delegate {
     padding-left: 32px;
   }
 
-  .ng-rules {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  /* State and buttons go under the name. */
+  /* The state goes under the name; the button stays beside both. */
   .ng-agent-list {
-    grid-template-columns: 18px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
-  .ng-agent-side {
-    display: flex;
-    flex-wrap: wrap;
-    grid-column: 2;
-    align-items: center;
-    gap: 8px;
+  .ng-agent > .ng-status {
+    grid-column: 1;
+    grid-row: 2;
   }
 
   .ng-agent-actions {
-    grid-column: auto;
+    grid-column: 2;
+    grid-row: 1 / span 2;
   }
 
   .ng-history {
@@ -1090,4 +1070,64 @@ body.vscode-high-contrast .ng-delegate {
   .ng-outcome {
     grid-column: 2;
   }
+}
+
+/* One help line under a card's title. */
+.ng-card-help {
+  max-width: 640px;
+  margin: -6px 0 12px;
+}
+
+/* "How it works" for all the agents: one short part each. */
+.ng-explain {
+  gap: 16px;
+}
+
+.ng-explain-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.ng-explain-item > .ng-help {
+  margin: 0;
+  max-width: 640px;
+}
+
+.ng-explain-title {
+  margin: 0;
+  font-size: 1em;
+  font-weight: 600;
+}
+
+/* A card folded to its title, for what is needed now and then. */
+.ng-card-fold > .ng-card-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  cursor: pointer;
+}
+
+.ng-card-fold > .ng-card-summary:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
+
+.ng-card-fold:not([open]) {
+  padding-bottom: 12px;
+}
+
+.ng-card-fold[open] > .ng-card-summary {
+  margin-bottom: 12px;
+}
+
+/* Removing a destination sits apart from saving it, at the far end of the row. */
+.ng-form-actions {
+  align-self: stretch;
+}
+
+.ng-form-actions > .ng-remove {
+  margin-inline-start: auto;
 }

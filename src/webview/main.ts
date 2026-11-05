@@ -7,6 +7,7 @@ import type {
   SetupWay,
   TailscaleView,
 } from '../shared/protocol';
+import { AgentsCard } from './agent';
 import { DestinationCard } from './destination';
 import { button, element } from './dom';
 import { MessageCard } from './message';
@@ -20,7 +21,11 @@ class PanelView {
   private readonly pause: HTMLButtonElement;
   private readonly destination: DestinationCard;
   private readonly notify: NotifyCard;
+  private readonly agents: AgentsCard;
   private readonly message: MessageCard;
+  private readonly tagline: HTMLElement;
+  /** Shown once a destination is set up; until then only where notifications go. */
+  private readonly later: HTMLElement[];
   private readonly history = element('ol', 'ng-history');
   private readonly empty = element('p', 'ng-empty');
   private readonly clear: HTMLButtonElement;
@@ -47,10 +52,8 @@ class PanelView {
 
     const header = element('header', 'ng-header');
     const heading = element('div', 'ng-heading');
-    heading.append(
-      element('h1', 'ng-title', strings.title),
-      element('p', 'ng-tagline', strings.tagline),
-    );
+    this.tagline = element('p', 'ng-tagline', strings.tagline);
+    heading.append(element('h1', 'ng-title', strings.title), this.tagline);
     this.status.setAttribute('role', 'status');
     // Pause opens VS Code's own list of lengths; Resume ends the pause at once.
     this.pause = button(strings.pause, 'secondary');
@@ -59,7 +62,7 @@ class PanelView {
     side.append(this.status, this.pause);
     header.append(heading, side);
 
-    // Where notifications go, then when they come, then the rest.
+    // Where notifications go, then when they come, then the agents, then the rest.
     this.destination = new DestinationCard(strings.destinations, strings.sending, clock);
     const destination = this.card(strings.destinations.title);
     destination.append(this.destination.element);
@@ -68,9 +71,16 @@ class PanelView {
     const notify = this.card(strings.whenToNotify);
     notify.append(this.notify.element);
 
+    this.agents = new AgentsCard(strings);
+    const agents = this.card(strings.agents);
+    agents.append(this.agents.element);
+
+    // Sending a message of one's own is for now and then: folded.
     this.message = new MessageCard(strings.message, strings.sending, clock);
-    const message = this.card(strings.message.title);
-    message.append(this.message.element);
+    const message = element('details', 'ng-card ng-card-fold');
+    const summary = element('summary', 'ng-card-summary');
+    summary.append(element('h2', 'ng-card-title', strings.message.title));
+    message.append(summary, this.message.element);
 
     this.clear = button(strings.clearRecent, 'link');
     this.empty.textContent = strings.recentEmpty;
@@ -82,7 +92,8 @@ class PanelView {
     const settings = button(strings.allSettings, 'link');
     footer.append(element('p', 'ng-privacy', strings.privacy), settings);
 
-    main.append(header, destination, notify, message, recent, footer);
+    this.later = [notify, agents, message, recent];
+    main.append(header, destination, notify, agents, message, recent, footer);
     app.replaceChildren(main);
 
     this.clear.addEventListener('click', () => vscode.postMessage({ type: 'clearHistory' }));
@@ -97,7 +108,12 @@ class PanelView {
     this.showStatus(state);
     this.destination.show(state);
     this.notify.show(state);
+    this.agents.show(state);
     this.message.show(state);
+    // First things first: until a destination works, the rest would only be in the way.
+    const setUp = state.destinations.length > 0;
+    for (const card of this.later) card.hidden = !setUp;
+    this.tagline.hidden = setUp;
     this.renderHistory(state.history);
   }
 

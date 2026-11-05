@@ -18,7 +18,10 @@ const SCREENS = 'test-results/screens';
 const d = strings.destinations;
 const destinationCard = (page: Page) => page.getByRole('region', { name: d.title });
 const notifyCard = (page: Page) => page.getByRole('region', { name: strings.whenToNotify });
-const messageCard = (page: Page) => page.getByRole('region', { name: strings.message.title });
+const agentsCard = (page: Page) => page.getByRole('region', { name: strings.agents });
+// Folded to its title: opened before use.
+const messageCard = (page: Page) => page.locator('.ng-card-fold');
+const openMessage = (page: Page) => messageCard(page).locator('summary').click();
 const server = (page: Page) => page.getByLabel(d.server, { exact: true });
 const topic = (page: Page) => page.getByLabel(d.topic, { exact: true });
 const token = (page: Page) => page.getByLabel(d.token, { exact: true });
@@ -32,9 +35,22 @@ const rows = (page: Page) => destinationCard(page).locator('.ng-dest');
 const result = (page: Page) => page.locator('.ng-destination > .ng-result');
 const stepTitles = (page: Page) => destinationCard(page).locator('.ng-step:visible .ng-step-title');
 const agentRow = (page: Page, agent: AgentKind) =>
-  page.getByRole('group', { name: strings[agent].title, exact: true });
-const howItWorks = (page: Page, agent: AgentKind) =>
-  agentRow(page, agent).getByText(strings[agent].howItWorks);
+  agentsCard(page).getByRole('listitem', { name: strings[agent].title, exact: true });
+const agentButton = (
+  page: Page,
+  agent: AgentKind,
+  action: 'connect' | 'reconnect' | 'disconnect' | 'copy',
+) =>
+  agentsCard(page).getByRole('button', {
+    name: `${strings[agent][action]}: ${strings[agent].title}`,
+    exact: true,
+  });
+// One "How it works" for every agent, with a part for each.
+const howItWorks = (page: Page) => agentsCard(page).getByText(strings.claude.howItWorks);
+const explain = (page: Page, agent: AgentKind) =>
+  agentsCard(page)
+    .locator('.ng-explain-item')
+    .filter({ has: page.getByRole('heading', { name: strings[agent].title, exact: true }) });
 const rules = (page: Page) => page.getByText(strings.changeRules);
 const rule = (page: Page) => page.locator('.ng-rule');
 const conditions = (page: Page) => page.locator('.ng-conditions li');
@@ -67,7 +83,11 @@ for (const theme of ['dark', 'light', 'hcDark', 'hcLight'] as ThemeName[]) {
       await expect(destinationCard(page).locator('form')).toBeHidden();
       // There is no list to go back to.
       await expect(page.getByRole('button', { name: d.cancel })).toBeHidden();
-      await expect(page.getByText(strings.recentEmpty)).toBeVisible();
+      // Until a destination works, the rest stays out of the way.
+      await expect(notifyCard(page)).toBeHidden();
+      await expect(agentsCard(page)).toBeHidden();
+      await expect(messageCard(page)).toBeHidden();
+      await expect(page.getByText(strings.recentEmpty)).toBeHidden();
       // WCAG AA for every text, AAA in the dark high contrast theme.
       expect(await lowestTextContrast(page)).toBeGreaterThanOrEqual(contrastFor(theme));
       await page.screenshot({ path: `${SCREENS}/setup-${theme}.png` });
@@ -80,6 +100,8 @@ for (const theme of ['dark', 'light', 'hcDark', 'hcLight'] as ThemeName[]) {
       await panel.init(ready);
 
       await expect(page.locator('.ng-header .ng-status')).toHaveText(strings.status.ready);
+      // Once it works, the line that introduces Nightping has done its job.
+      await expect(page.getByText(strings.tagline)).toBeHidden();
       await expect(rows(page)).toHaveCount(1);
       await expect(rows(page)).toContainText('ntfy.example.com');
       // Without a name the host is the title, so the line under it names the topic alone.
@@ -113,14 +135,16 @@ for (const theme of ['dark', 'light', 'hcDark', 'hcLight'] as ThemeName[]) {
         'Only while you are not using VS Code.',
         'Only if it ran for 30 seconds or longer, unless it failed or needs you.',
       ]);
-      await expect(preview(page)).toHaveText(['❌Task', 'Failed (exit 1) · 4m 12s']);
-      for (const kind of ['task', 'terminal', 'notebook', 'debug'] as const) {
-        await expect(page.getByLabel(strings.sources[kind])).toBeChecked();
-      }
+      // A problem the user has to act on stays outside the fold.
       await expect(page.getByText(strings.terminalNone)).toBeVisible();
       // The rules stay folded until asked for.
       await expect(page.getByLabel(strings.onlyWhenAway)).toBeHidden();
+      await expect(page.getByLabel(strings.sources.task)).toBeHidden();
       await rules(page).click();
+      for (const kind of ['task', 'terminal', 'notebook', 'debug'] as const) {
+        await expect(page.getByLabel(strings.sources[kind])).toBeChecked();
+      }
+      await expect(preview(page)).toHaveText(['❌Task', 'Failed (exit 1) · 4m 12s']);
       await expect(page.getByLabel(strings.onlyWhenAway)).toBeChecked();
       await expect(minimum(page)).toHaveValue('30');
       await expect(page.getByLabel(strings.contentLevels.result)).toBeChecked();
@@ -137,28 +161,22 @@ for (const theme of ['dark', 'light', 'hcDark', 'hcLight'] as ThemeName[]) {
 
       const claude = agentRow(page, 'claude');
       await expect(claude.getByRole('status')).toHaveText(strings.claude.state.disconnected);
-      await expect(
-        claude.getByRole('button', { name: strings.claude.connect, exact: true }),
-      ).toBeVisible();
-      // Nothing to turn on before the hooks are in.
-      await expect(claude.getByRole('checkbox')).toBeHidden();
-      // Files and buttons for doing it by hand wait under "How it works".
-      await expect(claude.getByText('~/.claude/settings.json')).toBeHidden();
-      await howItWorks(page, 'claude').click();
-      await expect(claude).toContainText('~/.claude/settings.json');
-      await expect(claude.getByRole('button', { name: strings.claude.copy })).toBeVisible();
-
+      await expect(agentButton(page, 'claude', 'connect')).toBeVisible();
       const copilot = agentRow(page, 'copilot');
       await expect(copilot.getByRole('status')).toHaveText(strings.copilot.state.connected);
-      await expect(copilot.getByLabel(strings.sources.copilot)).toBeChecked();
-      await expect(copilot.getByRole('button', { name: strings.copilot.disconnect })).toBeVisible();
+      await expect(agentButton(page, 'copilot', 'disconnect')).toBeVisible();
       expect(await lowestTextContrast(page)).toBeGreaterThanOrEqual(contrastFor(theme));
-      await page
-        .locator('#ng-agents-title')
-        .locator('..')
-        .screenshot({
-          path: `${SCREENS}/agents-${theme}.png`,
-        });
+      await agentsCard(page).screenshot({ path: `${SCREENS}/agents-${theme}.png` });
+
+      // Only a connected agent has something to turn on and off, under the rules.
+      await rules(page).click();
+      await expect(page.getByLabel(strings.sources.claude)).toBeHidden();
+      await expect(page.getByLabel(strings.sources.copilot)).toBeChecked();
+      // Files and buttons for doing it by hand wait under the one "How it works".
+      await expect(agentsCard(page).getByText('~/.claude/settings.json')).toBeHidden();
+      await howItWorks(page).click();
+      await expect(explain(page, 'claude')).toContainText('~/.claude/settings.json');
+      await expect(agentButton(page, 'claude', 'copy')).toBeVisible();
       expect(panel.problems).toEqual([]);
     });
 
@@ -166,6 +184,8 @@ for (const theme of ['dark', 'light', 'hcDark', 'hcLight'] as ThemeName[]) {
       const panel = await openPanel(page, theme);
       await panel.init(ready);
       const card = messageCard(page);
+      await expect(messageInput(page)).toBeHidden();
+      await openMessage(page);
       await expect(messageInput(page)).toHaveAttribute('placeholder', strings.message.placeholder);
       await expect(sendButton(page)).toBeDisabled();
       await messageInput(page).fill('Back in five minutes');
@@ -262,7 +282,7 @@ test('asks for one’s own server and says how to subscribe to it', async ({ pag
   await page.getByRole('button', { name: d.addToken }).click();
   await expect(token(page)).toBeFocused();
   await expect(token(page)).toHaveAttribute('type', 'password');
-  await expect(page.getByRole('button', { name: d.removeToken })).toBeHidden();
+  await expect(page.getByRole('button', { name: d.removeToken, exact: true })).toBeHidden();
   await token(page).fill('tk_abc');
   await topic(page).fill('my-topic');
   await name(page).fill('Work phone');
@@ -595,7 +615,9 @@ test('edits a destination, or leaves it as it was', async ({ page }) => {
   // The saved token is never shown; the field says one is saved.
   await expect(token(page)).toHaveValue('');
   await expect(token(page)).toHaveAttribute('placeholder', d.tokenSaved);
-  await expect(page.getByRole('button', { name: d.removeToken })).toBeVisible();
+  await expect(page.getByRole('button', { name: d.removeToken, exact: true })).toBeVisible();
+  // Removing it is part of changing it, apart from the other buttons.
+  await expect(page.getByRole('button', { name: `${d.remove}: ntfy.example.com` })).toBeVisible();
   // Nothing changed yet, so there is nothing to save; a saved token needs no prompt for one.
   await expect(saveButton(page)).toBeDisabled();
   await expect(destinationCard(page).locator('.ng-delegate:visible')).toHaveCount(0);
@@ -638,7 +660,7 @@ test('removes a saved token', async ({ page }) => {
   const panel = await openPanel(page, 'dark');
   await panel.init(ready);
   await editButton(page).click();
-  await page.getByRole('button', { name: d.removeToken }).click();
+  await page.getByRole('button', { name: d.removeToken, exact: true }).click();
   expect(await panel.sent()).toEqual([{ type: 'removeToken', key: ownServer.key }]);
 });
 
@@ -657,9 +679,16 @@ test('keeps what the user is typing when the settings change elsewhere', async (
   await panel.init(ready);
   await editButton(page).click();
   await topic(page).fill('half-typed');
-  await panel.post({ type: 'state', state: twoDestinations });
+  await panel.post({
+    type: 'state',
+    state: { ...twoDestinations, destinations: [ownServer, ...twoDestinations.destinations] },
+  });
   await expect(topic(page)).toHaveValue('half-typed');
   await expect(destinationCard(page).locator('form')).toBeVisible();
+  // Removed meanwhile: there is nothing left to change, so the list comes back.
+  await panel.post({ type: 'state', state: twoDestinations });
+  await expect(destinationCard(page).locator('form')).toBeHidden();
+  await expect(rows(page)).toHaveCount(2);
 });
 
 test('shows a wrong saved setting in its row', async ({ page }) => {
@@ -770,6 +799,9 @@ test('turns a destination on and off, and removes one', async ({ page }) => {
   const [phone, home] = twoDestinations.destinations;
   await expect(page.getByRole('checkbox', { name: 'Phone' })).toBeChecked();
   await page.getByRole('checkbox', { name: 'Home server' }).check();
+  // Removing one is part of changing it.
+  await expect(page.getByRole('button', { name: `${d.remove}: Phone` })).toBeHidden();
+  await page.getByRole('button', { name: `${d.edit}: Phone` }).click();
   await page.getByRole('button', { name: `${d.remove}: Phone` }).click();
   expect(await panel.sent()).toEqual([
     { type: 'setEnabled', key: home.key, enabled: true },
@@ -809,16 +841,17 @@ test('connects, disconnects and copies the Claude Code hooks', async ({ page }) 
   const panel = await openPanel(page, 'dark');
   await panel.init({ ...ready, claude: notSetUp.claude });
   const row = agentRow(page, 'claude');
-  await row.getByRole('button', { name: strings.claude.connect, exact: true }).click();
-  await howItWorks(page, 'claude').click();
-  await row.getByRole('button', { name: strings.claude.copy }).click();
+  await agentButton(page, 'claude', 'connect').click();
+  await howItWorks(page).click();
+  await agentButton(page, 'claude', 'copy').click();
 
   await panel.post({ type: 'state', state: ready });
   await expect(row.getByRole('status')).toHaveText(strings.claude.state.connected);
-  await expect(row.getByRole('button', { name: strings.claude.connect, exact: true })).toBeHidden();
-  await expect(row.getByLabel(strings.sources.claude)).toBeChecked();
-  await expect(row.getByText('In this window, on port 47391.')).toBeVisible();
-  await row.getByRole('button', { name: strings.claude.disconnect }).click();
+  await expect(agentButton(page, 'claude', 'connect')).toBeHidden();
+  await rules(page).click();
+  await expect(page.getByLabel(strings.sources.claude)).toBeChecked();
+  await expect(explain(page, 'claude').getByText('In this window, on port 47391.')).toBeVisible();
+  await agentButton(page, 'claude', 'disconnect').click();
   expect(await panel.sent()).toEqual([
     { type: 'connectAgent', agent: 'claude' },
     { type: 'copyAgentSettings', agent: 'claude' },
@@ -831,9 +864,10 @@ test('turns a connected agent off; an agent not connected has nothing to turn', 
 }) => {
   const panel = await openPanel(page, 'dark');
   await panel.init(ready);
-  await agentRow(page, 'claude').getByLabel(strings.sources.claude).click();
-  // Codex is not connected: its name is not a switch.
-  await agentRow(page, 'codex').getByText(strings.sources.codex).click({ force: true });
+  await rules(page).click();
+  await page.getByLabel(strings.sources.claude).click();
+  // Codex is not connected: the rules do not list it.
+  await expect(page.getByLabel(strings.sources.codex)).toBeHidden();
   expect(await panel.sent()).toEqual([
     { type: 'setPref', change: { key: 'source', source: 'claude', on: false } },
   ]);
@@ -844,15 +878,16 @@ test('offers to connect Codex, and says to trust the hooks once', async ({ page 
   // Claude Code is connected, so the endpoint runs; Codex is not.
   await panel.init(ready);
   const row = agentRow(page, 'codex');
+  const info = explain(page, 'codex');
   await expect(row.getByRole('status')).toHaveText(strings.codex.state.disconnected);
   await expect(row.getByText(strings.codex.nextStep ?? '')).toBeHidden();
-  await howItWorks(page, 'codex').click();
-  await expect(row).toContainText('~/.codex/hooks.json');
-  await expect(row.getByText(/^In this window/)).toBeHidden();
-  await expect(row.getByRole('button', { name: strings.codex.disconnect })).toBeHidden();
-  await row.getByRole('button', { name: strings.codex.connect, exact: true }).click();
-  await row.getByRole('button', { name: strings.codex.copy }).click();
-  await row.screenshot({ path: `${SCREENS}/codex-dark.png` });
+  await howItWorks(page).click();
+  await expect(info).toContainText('~/.codex/hooks.json');
+  await expect(info.getByText(/^In this window/)).toBeHidden();
+  await expect(agentButton(page, 'codex', 'disconnect')).toBeHidden();
+  await agentButton(page, 'codex', 'connect').click();
+  await agentButton(page, 'codex', 'copy').click();
+  await agentsCard(page).screenshot({ path: `${SCREENS}/codex-dark.png` });
 
   await panel.post({
     type: 'state',
@@ -863,15 +898,15 @@ test('offers to connect Codex, and says to trust the hooks once', async ({ page 
   await expect(row.getByText(strings.codex.nextStep ?? '')).toBeVisible();
   await expect(row.getByText(strings.codex.nextStep ?? '')).toContainText('/hooks');
   await expect(
-    row.getByText(strings.codex.receivingState.listening.replace('{0}', '47391')),
+    info.getByText(strings.codex.receivingState.listening.replace('{0}', '47391')),
   ).toBeVisible();
-  await row.getByRole('button', { name: strings.codex.disconnect }).click();
+  await agentButton(page, 'codex', 'disconnect').click();
   expect(await panel.sent()).toEqual([
     { type: 'connectAgent', agent: 'codex' },
     { type: 'copyAgentSettings', agent: 'codex' },
     { type: 'disconnectAgent', agent: 'codex' },
   ]);
-  await row.screenshot({ path: `${SCREENS}/codex-connected-dark.png` });
+  await agentsCard(page).screenshot({ path: `${SCREENS}/codex-connected-dark.png` });
   expect(panel.problems).toEqual([]);
 });
 
@@ -879,27 +914,28 @@ test('offers to connect GitHub Copilot with a file of its own', async ({ page })
   const panel = await openPanel(page, 'dark');
   await panel.init({ ...ready, copilot: notSetUp.copilot });
   const row = agentRow(page, 'copilot');
+  const info = explain(page, 'copilot');
   await expect(row.getByRole('status')).toHaveText(strings.copilot.state.disconnected);
-  await howItWorks(page, 'copilot').click();
-  await expect(row).toContainText('~/.copilot/hooks/nightping.json');
-  await expect(row.getByRole('button', { name: strings.copilot.disconnect })).toBeHidden();
-  await row.getByRole('button', { name: strings.copilot.connect, exact: true }).click();
-  await row.getByRole('button', { name: strings.copilot.copy }).click();
-  await row.screenshot({ path: `${SCREENS}/copilot-dark.png` });
+  await howItWorks(page).click();
+  await expect(info).toContainText('~/.copilot/hooks/nightping.json');
+  await expect(agentButton(page, 'copilot', 'disconnect')).toBeHidden();
+  await agentButton(page, 'copilot', 'connect').click();
+  await agentButton(page, 'copilot', 'copy').click();
+  await agentsCard(page).screenshot({ path: `${SCREENS}/copilot-dark.png` });
 
   await panel.post({ type: 'state', state: ready });
   await expect(row.getByRole('status')).toHaveText(strings.copilot.state.connected);
-  await expect(row).toContainText('trusted workspaces');
+  await expect(info).toContainText('trusted workspaces');
   await expect(
-    row.getByText(strings.copilot.receivingState.listening.replace('{0}', '47391')),
+    info.getByText(strings.copilot.receivingState.listening.replace('{0}', '47391')),
   ).toBeVisible();
-  await row.getByRole('button', { name: strings.copilot.disconnect }).click();
+  await agentButton(page, 'copilot', 'disconnect').click();
   expect(await panel.sent()).toEqual([
     { type: 'connectAgent', agent: 'copilot' },
     { type: 'copyAgentSettings', agent: 'copilot' },
     { type: 'disconnectAgent', agent: 'copilot' },
   ]);
-  await row.screenshot({ path: `${SCREENS}/copilot-connected-dark.png` });
+  await agentsCard(page).screenshot({ path: `${SCREENS}/copilot-connected-dark.png` });
   expect(panel.problems).toEqual([]);
 });
 
@@ -907,30 +943,32 @@ test('shows what is wrong with the Claude Code hooks, and the way out', async ({
   const panel = await openPanel(page, 'dark');
   await panel.init(ready);
   const row = agentRow(page, 'claude');
+  const info = explain(page, 'claude');
   const show = (claude: Partial<typeof ready.claude>) =>
     panel.post({ type: 'state', state: { ...ready, claude: { ...ready.claude, ...claude } } });
 
   await show({ hooks: 'outdated', receiving: 'other-program' });
   await expect(row.getByRole('status')).toHaveText(strings.claude.state.outdated);
-  await expect(row.getByRole('button', { name: strings.claude.reconnect })).toBeVisible();
+  await expect(agentButton(page, 'claude', 'reconnect')).toBeVisible();
+  await expect(agentButton(page, 'claude', 'disconnect')).toBeVisible();
   // A problem opens the explanation by itself.
-  await expect(row.getByText(/are incomplete or use another port/)).toBeVisible();
+  await expect(info.getByText(/are incomplete or use another port/)).toBeVisible();
   const busy = row.locator('.ng-warning', { hasText: /^Port 47391 is used by another program/ });
   await expect(busy).toBeVisible();
   await expect(busy).toHaveClass(/ng-warning/);
   await busy.getByRole('button', { name: strings.openSettings }).click();
   expect(await panel.sent()).toEqual([{ type: 'openSettings' }]);
-  await row.screenshot({ path: `${SCREENS}/claude-outdated-dark.png` });
+  await agentsCard(page).screenshot({ path: `${SCREENS}/claude-outdated-dark.png` });
 
   await show({ receiving: 'other-window' });
-  await expect(row.getByText('In another VS Code window, on port 47391.')).toBeVisible();
+  await expect(info.getByText('In another VS Code window, on port 47391.')).toBeVisible();
 
   // A file Nightping cannot read is left alone: only copying is offered.
   await show({ hooks: 'invalid', receiving: 'off' });
   await expect(row.getByRole('status')).toHaveText(strings.claude.state.invalid);
-  await expect(row.getByRole('button', { name: strings.claude.connect, exact: true })).toBeHidden();
-  await expect(row.getByRole('button', { name: strings.claude.disconnect })).toBeHidden();
-  await expect(row.getByRole('button', { name: strings.claude.copy })).toBeVisible();
+  await expect(agentButton(page, 'claude', 'connect')).toBeHidden();
+  await expect(agentButton(page, 'claude', 'disconnect')).toBeHidden();
+  await expect(agentButton(page, 'claude', 'copy')).toBeVisible();
 });
 
 test('pauses and resumes from the header', async ({ page }) => {
@@ -965,8 +1003,8 @@ test('pauses and resumes from the header', async ({ page }) => {
 test('writes each choice at once', async ({ page }) => {
   const panel = await openPanel(page, 'dark');
   await panel.init(ready);
-  await page.getByLabel(strings.sources.terminal).click();
   await rules(page).click();
+  await page.getByLabel(strings.sources.terminal).click();
   await minimum(page).selectOption('120');
   await page.getByLabel(strings.onlyWhenAway).click();
   await page.getByLabel(strings.contentLevels.details).click();
@@ -1059,9 +1097,10 @@ test('says why terminal commands cannot notify, and links the fix', async ({ pag
 
 test('sends a typed message and says how it went', async ({ page }) => {
   const panel = await openPanel(page, 'dark');
-  await panel.init(notSetUp);
+  // Its only destination is off: nowhere to send it yet.
+  await panel.init({ ...ready, destinations: [{ ...ownServer, enabled: false }], status: 'off' });
+  await openMessage(page);
   await messageInput(page).fill('Back in five minutes');
-  // Nowhere to send it yet.
   await expect(sendButton(page)).toBeDisabled();
 
   await panel.post({ type: 'state', state: ready });
@@ -1113,8 +1152,12 @@ for (const [label, state, open] of [
       await panel.post({ type: 'tailscale', status: tailscaleReady });
       await page.getByRole('radiogroup').getByLabel('box').check();
     }
-    await howItWorks(page, 'codex').click();
-    await rules(page).click();
+    const setUp = state.destinations.length > 0;
+    if (setUp) {
+      await howItWorks(page).click();
+      await rules(page).click();
+      await openMessage(page);
+    }
     const overflow = await page.evaluate(() => {
       const app = document.getElementById('app') as HTMLElement;
       return app.scrollWidth - app.clientWidth;
@@ -1122,6 +1165,9 @@ for (const [label, state, open] of [
     expect(overflow).toBeLessThanOrEqual(0);
     // The panel scrolls inside #app, so each card gets its own picture.
     await destinationCard(page).screenshot({ path: `${SCREENS}/narrow-${label}-phone-dark.png` });
-    await notifyCard(page).screenshot({ path: `${SCREENS}/narrow-${label}-notify-dark.png` });
+    if (setUp) {
+      await notifyCard(page).screenshot({ path: `${SCREENS}/narrow-${label}-notify-dark.png` });
+      await agentsCard(page).screenshot({ path: `${SCREENS}/narrow-${label}-agents-dark.png` });
+    }
   });
 }

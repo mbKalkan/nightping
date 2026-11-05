@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **A plainer panel.** Until the first destination works, the panel shows only how notifications should reach your phone. **AI agents** has a card of its own: each agent has one button (**Connect**, or **Disconnect** once it is connected) and the card has one **How it works**. The checkboxes for each kind of event and each connected agent, the example and the other rules are under **Change the rules**; a terminal that cannot notify is still pointed out above them. A destination shows **Send Test** and **Edit**, and **Remove Destination** is in **Edit**. **Send a message** is folded until you open it. Status is plain text instead of a button-like label.
+
 ## [0.2.0] - 2026-11-05
 
 Notifications to more than one place, a guided setup for ntfy.sh, your own server or your own server over Tailscale (from the server computer itself too), setup steps you can hand to your AI agent, and quiet while you work in any VS Code window.

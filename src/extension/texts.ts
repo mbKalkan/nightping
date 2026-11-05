@@ -67,7 +67,7 @@ export function panelStrings(t: Translate): PanelStrings {
       },
       sendTest: t('Send Test'),
       edit: t('Edit'),
-      remove: t('Remove'),
+      remove: t('Remove Destination'),
       add: t('Add Another Destination'),
       chooseLead: t('How should notifications reach your phone?'),
       ways: {
@@ -169,7 +169,7 @@ export function panelStrings(t: Translate): PanelStrings {
       ),
       tokenSaved: t('Saved. Type a new token to replace it.'),
       tokenInvalid: t('An access token has no spaces or special characters.'),
-      removeToken: t('Remove'),
+      removeToken: t('Clear Access Token'),
       enterToken: t('Set Access Token'),
       name: t('Name'),
       nameHelp: t('Optional. Left empty, the list shows {0}.', '{0}'),
@@ -346,7 +346,9 @@ export function panelStrings(t: Translate): PanelStrings {
     previewHelp: t('On your phone, a failed build task looks like this:'),
     vscodeEvents: t('In VS Code'),
     agents: t('AI agents'),
-    agentsHelp: t('Connect an agent once; then its checkbox turns its notifications on and off.'),
+    agentsHelp: t(
+      'Connect an agent once, and you get a notification when it finishes or needs you.',
+    ),
     openSettings: t('Open Settings'),
     sources: {
       task: t('Tasks finish'),

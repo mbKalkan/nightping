@@ -1,7 +1,8 @@
-// The "When you get a notification" card: the rules in one sentence and an example, then what
-// can notify (VS Code's own events, then the AI agents), and the rules themselves folded away.
-// Every control writes its setting at once, as VS Code's own settings do; the next state from
-// the host confirms it.
+// The "When you get a notification" card: the rules in plain sentences, and under "Change the
+// rules" everything that sets them: what can notify (VS Code's own events, then each connected
+// AI agent), when, and what the notification says, with an example. A problem the user has to
+// act on stays outside the fold. Every control writes its setting at once, as VS Code's own
+// settings do; the next state from the host confirms it.
 import {
   AGENT_KINDS,
   CONTENT_LEVELS,
@@ -12,7 +13,6 @@ import {
   type PrefChange,
   type SourceKind,
 } from '../shared/protocol';
-import { AgentRow } from './agent';
 import { button, element } from './dom';
 import { vscode } from './vscodeApi';
 
@@ -26,7 +26,8 @@ export class NotifyCard {
   readonly element = element('div', 'ng-notify');
   private readonly conditions = element('ul', 'ng-conditions');
   private readonly sources = new Map<SourceKind, HTMLInputElement>();
-  private readonly agents = new Map<AgentKind, AgentRow>();
+  private readonly agents = new Map<AgentKind, { element: HTMLElement; input: HTMLInputElement }>();
+  private readonly agentGroup: HTMLElement;
   private readonly terminalNone = element('p', 'ng-warning');
   private readonly minimum = element('select', 'ng-select');
   private readonly away: HTMLInputElement;
@@ -43,7 +44,7 @@ export class NotifyCard {
   ) {
     this.number = new Intl.NumberFormat(locale);
 
-    // The rules, folded under the sentence that says them.
+    // The rules, folded under the sentences that say them.
     const rules = element('details', 'ng-details');
     const rulesBody = element('div', 'ng-details-body ng-stack');
     rules.append(element('summary', undefined, strings.changeRules), rulesBody);
@@ -85,12 +86,8 @@ export class NotifyCard {
       });
     }
     content.append(element('p', 'ng-help', strings.contentHelp));
-    rulesBody.append(away.element, minimum, content);
 
-    // A sentence, then one line for each condition, so each can be read on its own.
-    const text = element('div', 'ng-rules-text');
-    text.append(element('p', 'ng-rule', strings.rules.lead), this.conditions);
-
+    // The example follows the level chosen above it.
     const example = element('figure', 'ng-example');
     const card = element('div', 'ng-preview');
     const title = element('p', 'ng-preview-title');
@@ -98,9 +95,11 @@ export class NotifyCard {
     title.append(this.previewEmoji, this.previewTitle);
     card.append(title, this.previewMessage);
     example.append(element('figcaption', 'ng-help', strings.previewHelp), card);
+    content.append(example);
 
-    const top = element('div', 'ng-rules');
-    top.append(text, example, rules);
+    // A sentence, then one line for each condition, so each can be read on its own.
+    const text = element('div', 'ng-rules');
+    text.append(element('p', 'ng-rule', strings.rules.lead), this.conditions);
 
     // VS Code's events: one checkbox each; the terminal says when it cannot see commands.
     const events = section('ng-events', strings.vscodeEvents);
@@ -122,29 +121,38 @@ export class NotifyCard {
         const help = element('p', 'ng-help', strings.terminalHelp);
         help.id = 'ng-terminal-help';
         check.input.setAttribute('aria-describedby', `${help.id} ${this.terminalNone.id}`);
-        check.element.append(help, this.terminalNone);
+        check.element.append(help);
       }
     }
 
-    const agents = section('ng-agents', strings.agents, strings.agentsHelp);
-    agents.body.className = 'ng-agent-list';
+    // Only the agents that are connected can notify; the AI agents card connects the others.
+    const agents = section('ng-agent-sources', strings.agents);
+    this.agentGroup = agents.element;
     for (const agent of AGENT_KINDS) {
-      const row = new AgentRow(agent, strings.sources[agent], strings[agent], strings.openSettings);
-      this.agents.set(agent, row);
-      agents.body.append(row.element);
-      row.input.addEventListener('change', () =>
-        change({ key: 'source', source: agent, on: row.input.checked }),
+      const check = checkbox(`ng-source-${agent}`, strings.sources[agent]);
+      this.agents.set(agent, check);
+      agents.body.append(check.element);
+      check.input.addEventListener('change', () =>
+        change({ key: 'source', source: agent, on: check.input.checked }),
       );
     }
 
-    this.element.append(top, events.element, agents.element);
+    const what = element('div', 'ng-stack');
+    what.append(events.element, agents.element);
+    rulesBody.append(what, away.element, minimum, content);
+    this.element.append(text, this.terminalNone, rules);
   }
 
   show(state: PanelState): void {
     this.state = state;
     const { prefs, terminals } = state;
     for (const [kind, input] of this.sources) input.checked = prefs.sources[kind];
-    for (const [agent, row] of this.agents) row.show(state[agent], prefs.sources[agent]);
+    for (const [agent, check] of this.agents) {
+      const hooks = state[agent].hooks;
+      check.element.hidden = hooks !== 'connected' && hooks !== 'outdated';
+      check.input.checked = prefs.sources[agent];
+    }
+    this.agentGroup.hidden = [...this.agents.values()].every((check) => check.element.hidden);
     this.terminalNone.hidden = !(terminals.open > 0 && terminals.reporting === 0);
 
     const options = MINIMUMS.includes(prefs.minimumSeconds)
@@ -197,17 +205,15 @@ function change(change: PrefChange): void {
   vscode.postMessage({ type: 'setPref', change });
 }
 
-/** A titled list of checkboxes or rows, with a line on how to use it if it needs one. */
-function section(id: string, title: string, help?: string) {
+/** A titled list of checkboxes. */
+function section(id: string, title: string) {
   const node = element('div', 'ng-group');
   const heading = element('h3', 'ng-group-title', title);
   heading.id = `${id}-title`;
   const body = element('div', 'ng-stack');
   body.setAttribute('role', 'group');
   body.setAttribute('aria-labelledby', heading.id);
-  node.append(heading);
-  if (help) node.append(element('p', 'ng-help ng-group-help', help));
-  node.append(body);
+  node.append(heading, body);
   return { element: node, body };
 }
 

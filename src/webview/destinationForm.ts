@@ -48,6 +48,8 @@ export class DestinationForm {
   private readonly copyTopic: HTMLButtonElement;
   private readonly submit: HTMLButtonElement;
   private readonly cancel: HTMLButtonElement;
+  /** Only when editing: removing a destination is part of changing it. */
+  private readonly remove: HTMLButtonElement;
   private readonly tailscaleState = element('p', 'ng-help');
   private readonly devices = element('div', 'ng-stack ng-devices');
   private readonly noMagicDns = element('p', 'ng-warning');
@@ -153,8 +155,10 @@ export class DestinationForm {
     this.submit = button(s.saveAndTest, 'primary');
     this.submit.type = 'submit';
     this.cancel = button(s.cancel, 'secondary');
-    const actions = element('div', 'ng-row');
-    actions.append(this.submit, this.cancel);
+    this.remove = button(s.remove, 'secondary');
+    this.remove.classList.add('ng-remove');
+    const actions = element('div', 'ng-row ng-form-actions');
+    actions.append(this.submit, this.cancel, this.remove);
     const save = step(s.steps.save);
     save.body.append(this.name.element, actions);
 
@@ -216,6 +220,12 @@ export class DestinationForm {
       this.save();
     });
     this.cancel.addEventListener('click', () => this.onClose('cancel'));
+    // The command asks first; once it is gone, the next state closes the form.
+    this.remove.addEventListener('click', () => {
+      if (this.mode.way === 'edit') {
+        vscode.postMessage({ type: 'removeDestination', key: this.mode.destination.key });
+      }
+    });
     this.back.addEventListener('click', () => this.onClose('back'));
   }
 
@@ -250,7 +260,12 @@ export class DestinationForm {
     if (this.mode.way === 'edit') {
       const key = this.mode.destination.key;
       const now = destinations.find((item) => item.key === key);
-      if (now) this.mode = { way: 'edit', destination: now };
+      if (!now) {
+        // Removed: an open form goes back to the list.
+        if (!this.element.hidden) this.onClose('cancel');
+        return;
+      }
+      this.mode = { way: 'edit', destination: now };
     }
     this.layout();
   }
@@ -404,6 +419,11 @@ export class DestinationForm {
     // Offered where a token is asked for and none is saved yet.
     this.tokenAgent.element.hidden = !token || hasToken;
     this.cancel.hidden = !this.canCancel;
+    this.remove.hidden = !editing;
+    if (this.mode.way === 'edit') {
+      const name = this.mode.destination.name.trim() || hostOf(this.mode.destination.server);
+      this.remove.setAttribute('aria-label', `${s.remove}: ${name}`);
+    }
     this.check();
   }
 

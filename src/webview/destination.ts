@@ -1,6 +1,6 @@
 // The "Where notifications go" card. With no destination yet it asks how notifications should
 // reach the phone and walks through that way step by step. Then it lists the destinations, each
-// with a test, a change and a removal, and a way to add another.
+// with a test and a change (removing one is part of changing it), and a way to add another.
 import { displayName, hostOf } from '../shared/destination';
 import {
   SETUP_WAYS,
@@ -38,7 +38,7 @@ export class DestinationCard {
     private readonly time: (ms: number) => string,
   ) {
     this.list.setAttribute('aria-label', s.title);
-    this.add = button(s.add, 'secondary');
+    this.add = button(s.add, 'link');
     const addRow = element('div', 'ng-row ng-add');
     addRow.append(this.add);
 
@@ -220,21 +220,17 @@ export class DestinationCard {
         if (destination.problem) test.dataset.problem = destination.problem;
         test.disabled = this.busy || destination.problem !== undefined;
         this.testButtons.push(test);
-        const edit = button(s.edit, 'secondary');
-        const remove = button(s.remove, 'secondary');
+        const edit = button(s.edit, 'link');
         // Screen readers hear which destination each button is for.
-        for (const action of [test, edit, remove]) {
+        for (const action of [test, edit]) {
           action.setAttribute('aria-label', `${action.textContent}: ${displayName(destination)}`);
         }
         const actions = element('div', 'ng-dest-actions');
-        actions.append(test, edit, remove);
+        actions.append(test, edit);
         test.addEventListener('click', () =>
           vscode.postMessage({ type: 'sendTest', key: destination.key }),
         );
         edit.addEventListener('click', () => this.openForm({ way: 'edit', destination }));
-        remove.addEventListener('click', () =>
-          vscode.postMessage({ type: 'removeDestination', key: destination.key }),
-        );
         row.append(text, actions);
         return row;
       }),
