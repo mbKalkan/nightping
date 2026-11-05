@@ -156,6 +156,18 @@ export interface DestinationStrings {
     otherWays: string;
     note: string;
   };
+  delegate: {
+    button: string;
+    /** What the button gives, and where to paste it; one line for each step. */
+    help: Record<PromptKind, string>;
+    show: string;
+    copied: string;
+  };
+  /**
+   * The prompts, one line each, in the user's language. `{0}`, `{1}`… are filled in by the panel:
+   * see `fillPrompt` in `src/shared/guide.ts`.
+   */
+  prompts: Record<PromptKind, string[]>;
 }
 
 /** The texts of an agent's row. */
@@ -196,6 +208,12 @@ export type AppStore = keyof typeof APP_STORES;
 export type SetupWay = 'ntfy-sh' | 'own-server' | 'tailscale';
 
 export const SETUP_WAYS: readonly SetupWay[] = ['ntfy-sh', 'own-server', 'tailscale'];
+
+/**
+ * Steps of the guide that an AI agent can do on a computer: put Tailscale on it, run ntfy on the
+ * server, keep a topic private with a token of its own.
+ */
+export type PromptKind = 'tailscale' | 'ntfy' | 'token';
 
 /** Pages the guide links to; the host holds the addresses. */
 export type GuideLink = 'tailscale-download' | 'tailscale-dns' | 'ntfy-install';

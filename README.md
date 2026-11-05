@@ -72,6 +72,10 @@ On an iPhone, notifications from your own server arrive at once only when the se
 
 The command also sets `upstream-base-url`, so an iPhone gets notifications at once; the iPhone still fetches the message from your server, so Tailscale has to be on there.
 
+### Let your AI agent do a step
+
+The steps an AI agent can do on a computer have a **Delegate to Agent** button: putting Tailscale on a computer, running ntfy on the server (both in the Tailscale guide), and, on your own server, keeping the topic private and creating its access token (under **My server needs an access token**). The button copies a ready prompt with your server's address and topic filled in; paste it into Claude Code, Codex or Copilot on that computer. **See the prompt** shows it first. Each prompt asks the agent to check with you before it installs or changes anything, and never contains an access token.
+
 ### More than one destination
 
 **Add Another Destination** adds one more the same way: a second phone, or ntfy.sh next to your own server. Every destination that is on gets every notification; with more than one, each has a checkbox to turn it off for a while without removing it. **Send Test** next to a destination tests that one, and **Nightping: Send Test Notification** tests every one that is on. When some destinations get a notification and others do not, **Recent notifications** says **Partly sent** and names the ones that failed.

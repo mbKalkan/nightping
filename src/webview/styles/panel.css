@@ -544,6 +544,46 @@ body.vscode-high-contrast .ng-badge {
   align-self: stretch;
 }
 
+/* A step an agent can do: what the button gives, the button, and the prompt in a fold. */
+.ng-delegate {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  align-self: stretch;
+  gap: 6px;
+  max-width: 760px;
+  margin-top: 4px;
+  padding-top: 10px;
+  /* Fainter than a card's border: it is a way aside, not a step. */
+  border-top: 1px solid color-mix(in srgb, var(--vscode-foreground) 7%, transparent);
+}
+
+body.vscode-high-contrast .ng-delegate {
+  border-top-color: var(--ng-card-border);
+}
+
+.ng-delegate > .ng-help,
+.ng-delegate .ng-row > .ng-help {
+  margin: 0;
+}
+
+.ng-delegate > .ng-details {
+  align-self: stretch;
+}
+
+/* Twelve whole lines, then it scrolls: no line is cut at the bottom. */
+.ng-prompt {
+  max-height: calc(12lh + 14px);
+  margin: 0;
+  overflow: auto;
+  user-select: text;
+}
+
+.ng-prompt:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 1px;
+}
+
 /* A command to run on the server, whole and selectable, with its own Copy. */
 .ng-command {
   display: flex;

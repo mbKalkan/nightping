@@ -199,6 +199,114 @@ export function panelStrings(t: Translate): PanelStrings {
         openDns: t('Open DNS Settings'),
         typeAddress: t('Server address'),
       },
+      delegate: {
+        button: t('Delegate to Agent'),
+        help: {
+          tailscale: t(
+            'Or let an AI agent put Tailscale on a computer: paste the prompt into Claude Code, Codex or Copilot there.',
+          ),
+          ntfy: t(
+            'Or let an AI agent do this on the server: paste the prompt into Claude Code, Codex or Copilot there.',
+          ),
+          token: t(
+            'No token yet? An AI agent on your ntfy server can make one: paste the prompt into Claude Code, Codex or Copilot there.',
+          ),
+        },
+        show: t('See the prompt'),
+        copied: t(
+          'Copied. Paste it into the chat of your agent; it asks before it changes anything.',
+        ),
+      },
+      prompts: {
+        tailscale: [
+          t(
+            'Install Tailscale on this computer and connect it to my Tailscale network, for phone notifications from Nightping (a VS Code extension).',
+          ),
+          '',
+          t(
+            '1. If `tailscale status` already works and this computer is connected, stop and tell me its Tailscale name.',
+          ),
+          t(
+            '2. Otherwise install Tailscale the way https://tailscale.com/download describes for this operating system.',
+          ),
+          t(
+            '3. Run `tailscale up`, give me the sign-in link it shows, and wait until I have signed in.',
+          ),
+          t(
+            '4. Check with `tailscale status --json` that MagicDNS is on (CurrentTailnet.MagicDNSEnabled). If it is off, tell me to turn it on at https://login.tailscale.com/admin/dns.',
+          ),
+          t('5. Tell me the Tailscale name and the MagicDNS address of this computer.'),
+          '',
+          t('Ask me before you install anything or change a system setting.'),
+        ],
+        ntfy: [
+          t(
+            'Set up an ntfy server on this computer for phone notifications from Nightping (a VS Code extension). Only my own Tailscale devices may reach it, at {0}.',
+            '{0}',
+          ),
+          '',
+          t('What it needs:'),
+          t(
+            '- ntfy listens only on 127.0.0.1:{0}, so nothing outside this computer reaches it directly.',
+            NTFY_PORT,
+          ),
+          t(
+            '- Its base-url is {0} and its upstream-base-url is https://ntfy.sh, so iPhones get notifications at once.',
+            '{0}',
+          ),
+          t('- Its message cache is a file, and it starts again by itself after a restart.'),
+          t(
+            '- `tailscale serve` publishes it over HTTPS to my Tailscale devices only. No port is opened to the internet.',
+          ),
+          '',
+          t('Steps:'),
+          t(
+            '1. Check with `tailscale status --json` that this computer is the one at {0} (Self.DNSName). If it is not, stop and tell me.',
+            '{0}',
+          ),
+          t('2. If Docker is installed, run this command:'),
+          '{1}',
+          t(
+            'Without Docker, install ntfy the way https://docs.ntfy.sh/install/ describes for this operating system, put the settings above into its server.yml (listen-http, base-url, upstream-base-url, cache-file) and run it as a service.',
+          ),
+          t('3. Run this command:'),
+          '{2}',
+          t(
+            'If it shows a link to turn on HTTPS, give me the link and wait until I tell you it is done.',
+          ),
+          t('4. Check that {0}/v1/health answers with "healthy": true.', '{0}'),
+          t('5. Tell me what you installed and changed, and how to stop or remove it.'),
+          '',
+          t('Ask me before you install anything or change a system setting.'),
+        ],
+        token: [
+          t(
+            'On my ntfy server at {0}, keep the topic {1} private and give Nightping (a VS Code extension) an access token of its own that may only publish to it.',
+            '{0}',
+            '{1}',
+          ),
+          '',
+          t(
+            '1. Find the server.yml of ntfy (often /etc/ntfy/server.yml) and show me its access control settings.',
+          ),
+          t(
+            '2. If access control is off, it needs auth-file and auth-default-access: "deny-all". Every other topic on this server becomes private too, so ask me first; then restart ntfy.',
+          ),
+          t('3. Create a user that may only publish to this topic, and a token for it:'),
+          'ntfy user add nightping',
+          'ntfy access nightping {1} write-only',
+          'ntfy token add nightping',
+          t(
+            '4. Show me the token once, so I can paste it into Nightping. Do not save it anywhere else.',
+          ),
+          t(
+            '5. To read the topic on my phone I need a user too: offer to create one that may read {0}.',
+            '{1}',
+          ),
+          '',
+          t('Ask me before you install anything or change a system setting.'),
+        ],
+      },
       run: {
         placeholder: 'https://SERVER.TAILNET.ts.net',
         otherWays: t('Other ways to install ntfy'),

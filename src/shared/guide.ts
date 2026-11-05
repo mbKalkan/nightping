@@ -22,3 +22,15 @@ export function serverCommands(address: string): string[] {
     `tailscale serve --bg ${NTFY_PORT}`,
   ];
 }
+
+/**
+ * A prompt as the agent gets it: its lines joined, and `{0}`, `{1}`… replaced by `values`.
+ * - `tailscale`: no values.
+ * - `ntfy`: the server's address, then its two commands from `serverCommands`.
+ * - `token`: the server's address, then the topic.
+ */
+export function fillPrompt(lines: string[], values: string[]): string {
+  return lines
+    .join('\n')
+    .replace(/\{(\d+)\}/g, (match, index: string) => values[Number(index)] ?? match);
+}
